@@ -5,14 +5,12 @@
 # This make file must build according to the structure described in the
 # introduction doc, if it doesn't you will get a ZERO!
 
-#CFLAGS = -Wall -Werror -I include/
+CFLAGS = -Wall -Werror -I include/
 
-#all: main map_reduce
+all: main map_reduce
 
-#main:
-#	gcc $(CFLAGS) src/main.c
+main:
+	gcc $(CFLAGS) src/main.c
 
-#map_reduce:
-#	gcc $(CFLAGS) src/map_reduce.c
-
-gcc -o a src/main.c src/map_reduce.c -I include/
+map_reduce:
+	gcc $(CFLAGS) src/map_reduce.c

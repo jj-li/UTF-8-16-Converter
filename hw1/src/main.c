@@ -19,6 +19,5 @@ int cat(FILE* f, void* res, char* filename) {
 }
 
 int main(int argc, char** argv) {
-    printf("Welcome to CSE 320!\n");
-    return EXIT_SUCCESS;
+    validateargs(argc, argv);
 }
