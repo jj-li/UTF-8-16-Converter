@@ -19,5 +19,5 @@ int cat(FILE* f, void* res, char* filename) {
 }
 
 int main(int argc, char** argv) {
-    validateargs(argc, argv);
+    nfiles("include");
 }

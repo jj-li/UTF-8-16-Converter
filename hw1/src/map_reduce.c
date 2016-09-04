@@ -105,3 +105,28 @@ int validateargs(int argc, char** argv){
 	printf("\nInvalid command%d\n", -1);//To Delete
 	return -1;
 }
+
+int nfiles(char* dir) {
+	DIR *oDir = opendir(dir);
+	if (oDir == NULL) {
+		closedir(oDir);
+		return -1;
+	}
+	int count = 0;
+	struct dirent *temp = readdir(oDir);
+	while (temp != NULL) {
+		if (strcmp(temp->d_name, ".") != 0 && strcmp(temp->d_name, "..") != 0 ){
+			count = count + 1;
+			printf("%s\n",temp->d_name);//To Delete
+		}
+		temp = readdir(oDir);
+	}
+	if (count == 0) {
+		printf("No files present in the directory.");
+		closedir(oDir);
+		return EXIT_SUCCESS;
+	}
+	printf("There are %d directories\n", count);//To Delete
+	closedir(oDir);
+	return count;
+}
