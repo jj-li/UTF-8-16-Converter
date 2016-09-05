@@ -130,3 +130,33 @@ int nfiles(char* dir) {
 	closedir(oDir);
 	return count;
 }
+
+int map(char* dir, void* results, size_t size, int (*act)(FILE* f, void* res, char* fn)) {
+	DIR *oDir = opendir(dir);
+	if (oDir == NULL) {
+		closedir(oDir);
+		return -1;
+	}
+	int elementSize = size/NFILES;
+	struct dirent *temp = readdir(oDir);
+	memset(results, 0, size);
+	int sum = 0;
+	while (temp != NULL) {
+		if (strcmp(temp->d_name, ".") != 0 && strcmp(temp->d_name, "..") != 0 ){
+			char fullPath[strlen(dir)+strlen(temp->d_name)+1];
+			strcpy(fullPath, dir);
+			strcat(fullPath, temp->d_name);
+			FILE *oF = fopen(fullPath, "r");
+			int returnedNumber = act(oF, results, temp->d_name);
+			if (returnedNumber == -1) {
+				return -1;
+			}
+			fclose(oF);
+			results = results + elementSize;
+			sum = sum + returnedNumber;
+		}
+		temp = readdir(oDir);
+	}
+	closedir(oDir);
+	return sum;
+}
