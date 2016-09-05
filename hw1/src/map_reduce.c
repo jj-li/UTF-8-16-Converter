@@ -152,7 +152,9 @@ int map(char* dir, void* results, size_t size, int (*act)(FILE* f, void* res, ch
 				return -1;
 			}
 			fclose(oF);
-			results = results + elementSize;
+			char* tempResults = (char*)results;
+			tempResults = tempResults + elementSize;
+			results = (void*) tempResults;
 			sum = sum + returnedNumber;
 		}
 		temp = readdir(oDir);
