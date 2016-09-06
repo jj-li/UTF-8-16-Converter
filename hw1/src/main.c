@@ -19,6 +19,7 @@ int cat(FILE* f, void* res, char* filename) {
 }
 
 int main(int argc, char** argv) {
-    int sum = map("rsrc/ana_light/", stats_space, sizeof(stats_space), cat);
-    printf("%d\n",sum);
+    //int sum = map("rsrc/ana_light/", stats_space, sizeof(Stats), cat);
+    //printf("%d\n",sum);
+    validateargs(argc,argv);
 }

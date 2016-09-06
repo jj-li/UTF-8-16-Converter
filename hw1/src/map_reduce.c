@@ -6,17 +6,17 @@
 //Implement map_reduce.h functions here.
 
 int validateargs(int argc, char** argv){
-	char statement[] = "Usage: \t./mapreduce [h|v] FUNC DIR\n\tFUNC\tWhich operation you would like to run on the data:\n\t\tana - Analysis of various text files in a directory.\n\t\tstats - Calculates stats on files which contain only numbers.\n\tDIR\tThe directory in which the files are located.\n\n\tOptions:\n\t-h\tPrints this help menu.\n\t-v\tPrints the map function's results, stating the file it's from.\n";
+	char statement[] = "Usage: \t./mapreduce [h|v] FUNC DIR\n\tFUNC\tWhich operation you would like to run on the data:\n\t\tana - Analysis of various text files in a directory.\n\t\tstats - Calculates stats on files which contain only numbers.\n\tDIR\tThe directory in which the files are located.\n\n\tOptions:\n\t-h\tPrints this help menu.\n\t-v\tPrints the map function's results, stating the file it's from.\n\0";
 	//If no arguments are provided
 	if (argc < 2) {
 		printf("%s",statement);
 		printf("\nLess than 2%d\n", -1);//To Delete
 		return -1;
 	}
-	char hFlag[] = "-h";
-	char vFlag[] = "-v";
-	char ana[] = "ana";
-	char stats[] = "stats";
+	char hFlag[] = "-h\0";
+	char vFlag[] = "-v\0";
+	char ana[] = "ana\0";
+	char stats[] = "stats\0";
 	int i;
 	//Check for -h first
 	for (i = 1; i < argc; i++) {
@@ -115,7 +115,7 @@ int nfiles(char* dir) {
 	int count = 0;
 	struct dirent *temp = readdir(oDir);
 	while (temp != NULL) {
-		if (strcmp(temp->d_name, ".") != 0 && strcmp(temp->d_name, "..") != 0 ){
+		if (strcmp(temp->d_name, ".\0") != 0 && strcmp(temp->d_name, "..\0") != 0 ){
 			count = count + 1;
 			printf("%s\n",temp->d_name);//To Delete
 		}
@@ -137,28 +137,90 @@ int map(char* dir, void* results, size_t size, int (*act)(FILE* f, void* res, ch
 		closedir(oDir);
 		return -1;
 	}
-	int elementSize = size/NFILES;
+	//int elementSize = size/NFILES;
 	struct dirent *temp = readdir(oDir);
-	memset(results, 0, size);
 	int sum = 0;
 	while (temp != NULL) {
-		if (strcmp(temp->d_name, ".") != 0 && strcmp(temp->d_name, "..") != 0 ){
+		if (strcmp(temp->d_name, ".\0") != 0 && strcmp(temp->d_name, "..\0") != 0 ){
 			char fullPath[strlen(dir)+strlen(temp->d_name)+1];
 			strcpy(fullPath, dir);
 			strcat(fullPath, temp->d_name);
 			FILE *oF = fopen(fullPath, "r");
+			memset(results, 0, size);
 			int returnedNumber = act(oF, results, temp->d_name);
 			if (returnedNumber == -1) {
 				return -1;
 			}
 			fclose(oF);
-			char* tempResults = (char*)results;
-			tempResults = tempResults + elementSize;
-			results = (void*) tempResults;
+			//char* tempResults = (char*)results;
+			//tempResults = tempResults + elementSize;
+			//results = (void*) tempResults;
+			results = results + size;
 			sum = sum + returnedNumber;
 		}
 		temp = readdir(oDir);
 	}
 	closedir(oDir);
 	return sum;
+}
+
+struct Analysis analysis_reduce(int n, void* results) {
+	struct Analysis ana = {0};
+	if (n == 0) {
+		return ana;
+	}
+	struct Analysis* anas[n];
+	anas[n] = (struct Analysis*)results;
+	int longest_line = anas[0]->lnno;
+	char* name = anas[0]->filename;
+	int lnlength = anas[0]->lnlen;
+	int lnnum = anas[0]->lnno;
+	int asciis[128];
+	asciis[128] = anas[0]->ascii[128];
+	int i;
+	for (i = 1; i < n; i++) {
+		if (longest_line < anas[i]->lnno) {
+			longest_line = anas[i]->lnno;
+			name = anas[i]->filename;
+		}
+		lnlength = lnlength + anas[i]->lnlen;
+		lnnum = lnnum + anas[i]->lnno;
+		int j;
+		for (j = 0; j < 128; j++) {
+			asciis[j] = asciis[j] + anas[i]->ascii[j];
+		}
+	}
+	ana.filename = name;
+	ana.ascii[128] = asciis[128];
+	ana.lnno = lnnum;
+	ana.lnlen = lnlength;
+	return ana;
+}
+
+Stats stat_reduce(int n, void* results) {
+	Stats sta = {0};
+	if (n == 0) {
+		return sta;
+	}
+	Stats* stas[n];
+	stas[n] = (Stats*)results;
+	int sum = stas[0]->sum;
+	int nn = stas[0]->n;
+	int histo[NVAL];
+	histo[NVAL] = stas[0]->histogram[NVAL];
+	int i;
+	for (i = 1; i < n; i++) {
+		sum = sum + stas[i]->sum;
+		nn = n+ stas[i]->n;
+		int j;
+		for (j = 0; j < NVAL; j++){
+			histo[j] = stas[i]->histogram[j];
+		}
+		
+	}
+	sta.filename = NULL;
+	sta.sum = sum;
+	sta.histogram[NVAL] = histo[NVAL];
+	sta.n = nn;
+	return sta;
 }
