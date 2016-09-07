@@ -9,8 +9,7 @@ int validateargs(int argc, char** argv){
 	char statement[] = "Usage: \t./mapreduce [h|v] FUNC DIR\n\tFUNC\tWhich operation you would like to run on the data:\n\t\tana - Analysis of various text files in a directory.\n\t\tstats - Calculates stats on files which contain only numbers.\n\tDIR\tThe directory in which the files are located.\n\n\tOptions:\n\t-h\tPrints this help menu.\n\t-v\tPrints the map function's results, stating the file it's from.\n\0";
 	//If no arguments are provided
 	if (argc < 2) {
-		printf("%s",statement);
-		printf("\nLess than 2%d\n", -1);//To Delete
+		printf("%s\n",statement);
 		return -1;
 	}
 	char hFlag[] = "-h\0";
@@ -22,7 +21,6 @@ int validateargs(int argc, char** argv){
 	for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i],hFlag) == 0) {
 			printf("%s",statement);
-			printf("\nAsked for help%d\n", EXIT_SUCCESS);//To Delete
 			return EXIT_SUCCESS;
 		}
 	}
@@ -45,26 +43,22 @@ int validateargs(int argc, char** argv){
 						DIR *oDir = opendir(argv[i]);
 						if (oDir == NULL) {
 							printf("%s",statement);
-							printf("\nFound a -v DIR error%d\n", -1);//To Delete
 							closedir(oDir);
 							return -1;
 						}
 						else {
-							printf("\nFound a -v%d\n", exitNumber);//To Delete
 							closedir(oDir);
 							return exitNumber;
 						}
 					}
 					else {
 						printf("%s",statement);
-						printf("\nFound a -v DIR error%d\n", -1);//To Delete
 						return -1;
 					}
 					
 				}
 			}
 			printf("%s",statement);
-			printf("\nFound a -v ana/stats error%d\n", -1);//To Delete
 			return -1;
 		}
 	}
@@ -83,26 +77,22 @@ int validateargs(int argc, char** argv){
 				DIR *oDir = opendir(argv[i]);
 				if (oDir == NULL) {
 					printf("%s",statement);
-					printf("\nFound a -v DIR error%d\n", -1);//To Delete
 					closedir(oDir);
 					return -1;
 				}
 				else {
-					printf("\nFound ana/stats%d\n", exitNumber);//To Delete
 					closedir(oDir);
 					return exitNumber;
 				}
 			}
 			else {
 				printf("%s",statement);
-				printf("\nFound ana/stats error%d\n", -1);//To Delete
 				return -1;
 			}
 		}	
 	}
 	//Invalid arguments
 	printf("%s",statement);
-	printf("\nInvalid command%d\n", -1);//To Delete
 	return -1;
 }
 
@@ -117,7 +107,6 @@ int nfiles(char* dir) {
 	while (temp != NULL) {
 		if (strcmp(temp->d_name, ".\0") != 0 && strcmp(temp->d_name, "..\0") != 0 ){
 			count = count + 1;
-			printf("%s\n",temp->d_name);//To Delete
 		}
 		temp = readdir(oDir);
 	}
@@ -126,7 +115,6 @@ int nfiles(char* dir) {
 		closedir(oDir);
 		return EXIT_SUCCESS;
 	}
-	printf("There are %d directories\n", count);//To Delete
 	closedir(oDir);
 	return count;
 }
@@ -169,31 +157,27 @@ struct Analysis analysis_reduce(int n, void* results) {
 	if (n == 0) {
 		return ana;
 	}
-	struct Analysis* anas[n];
-	anas[n] = (struct Analysis*)results;
-	int longest_line = anas[0]->lnno;
-	char* name = anas[0]->filename;
-	int lnlength = anas[0]->lnlen;
-	int lnnum = anas[0]->lnno;
-	int asciis[128];
-	asciis[128] = anas[0]->ascii[128];
+	struct Analysis* anas = (struct Analysis*)results;
+	ana.filename = anas[0].filename;
+	ana.lnno = anas[0].lnno;
+	ana.lnlen = anas[0].lnlen;
 	int i;
+	for (i = 0; i < 128; i++) {
+		ana.ascii[i] = anas[0].ascii[i];
+	}
 	for (i = 1; i < n; i++) {
-		if (longest_line < anas[i]->lnno) {
-			longest_line = anas[i]->lnno;
-			name = anas[i]->filename;
-		}
-		lnlength = lnlength + anas[i]->lnlen;
-		lnnum = lnnum + anas[i]->lnno;
-		int j;
-		for (j = 0; j < 128; j++) {
-			asciis[j] = asciis[j] + anas[i]->ascii[j];
+		if (ana.lnno < anas[i].lnno) {
+			ana.lnno = anas[i].lnno;
+			ana.filename = anas[i].filename;
+			ana.lnlen = anas[i].lnlen;
+			ana.lnno = anas[i].lnno;
+			int j;
+			for (j = 0; j < 128; j++) {
+				ana.ascii[j] = anas[i].ascii[j];
+			}
 		}
 	}
-	ana.filename = name;
-	ana.ascii[128] = asciis[128];
-	ana.lnno = lnnum;
-	ana.lnlen = lnlength;
+	
 	return ana;
 }
 
@@ -202,25 +186,23 @@ Stats stat_reduce(int n, void* results) {
 	if (n == 0) {
 		return sta;
 	}
-	Stats* stas[n];
-	stas[n] = (Stats*)results;
-	int sum = stas[0]->sum;
-	int nn = stas[0]->n;
-	int histo[NVAL];
-	histo[NVAL] = stas[0]->histogram[NVAL];
+	sta.filename = NULL;
+	Stats* stas = (Stats*)results;
+	sta.sum = stas[0].sum;
+	sta.n = stas[0].n;
 	int i;
+	for (i = 0; i < NVAL; i++) {
+		sta.histogram[i] = stas[0].histogram[i];
+	}
 	for (i = 1; i < n; i++) {
-		sum = sum + stas[i]->sum;
-		nn = n+ stas[i]->n;
+		sta.sum = sta.sum + stas[i].sum;
+		sta.n = sta.n + stas[i].n;
 		int j;
 		for (j = 0; j < NVAL; j++){
-			histo[j] = stas[i]->histogram[j];
+			sta.histogram[i] = sta.histogram[i] + stas[i].histogram[j];
 		}
 		
 	}
-	sta.filename = NULL;
-	sta.sum = sum;
-	sta.histogram[NVAL] = histo[NVAL];
-	sta.n = nn;
+	
 	return sta;
 }
