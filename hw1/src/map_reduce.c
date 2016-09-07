@@ -341,3 +341,31 @@ void stats_print(Stats res, int hist) {
 	printf("Min: %d\n", min);
 	printf("Max: %d\n", max);
 }
+
+int analysis(FILE* f, void* res, char* filename) {
+	struct Analysis ana = {0};
+	ana.filename = filename;
+	char c;
+	int lnlen = 0;
+	ana.lnlen = 0;
+	ana.lnno = 0;
+	int lnno = 0;
+	int bytesRead = 0;
+	while((c = fgetc(f)) != EOF) {
+        ana.ascii[c] = ana.ascii[c] + 1;
+        if (c == 10) {
+        	if (lnlen > ana.lnlen) {
+        		ana.lnlen = lnlen;
+        		ana.lnno = lnno;
+        	}
+        	lnlen = 0;
+        	lnno = lnno + 1;
+        }
+        else {
+        	lnlen = lnlen + 1;
+        }
+        bytesRead = bytesRead + 1;
+    }
+    res = &ana;
+    return bytesRead;
+}
