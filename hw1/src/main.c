@@ -23,7 +23,8 @@ int main(int argc, char** argv) {
     //printf("%d\n",sum);
     //validateargs(argc,argv);
     memset(analysis_space, 0, sizeof(analysis_space));
-    struct Analysis ana1 = {0};
+    memset(stats_space, 0, sizeof(stats_space));
+    /*struct Analysis ana1 = {0};
     struct Analysis ana2 = {0};
     struct Analysis ana3 = {0};
     int i;
@@ -50,6 +51,34 @@ int main(int argc, char** argv) {
     printf("The longest line number is %d\n", final.lnno);
     for (i = 0; i < 128; i++) {
     	printf("The histogram data is %d at %d\n", final.ascii[i], i);
+    }*/
+    Stats stat1 = {0};
+    Stats stat2 = {0};
+    Stats stat3 = {0};
+    int i;
+    for (i = 0; i < NVAL; i++) {
+    	stat1.histogram[i] = i;
+    	stat2.histogram[i] = i;
+    	stat3.histogram[i] = i;
+    }
+    stat1.filename = "One\0";
+    stat1.sum = 10;
+    stat1.n = 100;
+    stat2.filename = "Two\0";
+    stat2.sum = 20;
+    stat2.n = 200;
+    stat3.filename = "Three\0";
+    stat3.sum = 30;
+    stat3.n = 300;
+    stats_space[0] = stat1;
+    stats_space[1] = stat2;
+    stats_space[2] = stat3;
+    Stats final = stats_reduce(3, stats_space);
+    printf("The file name is %s\n", final.filename);
+    printf("The total sum is %d\n", final.sum);
+    printf("The total n is %d\n", final.n);
+    for (i = 0; i < NVAL; i++) {
+    	printf("The histogram data is %d at %d\n", final.histogram[i], i);
     }
     
 }

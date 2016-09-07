@@ -181,7 +181,7 @@ struct Analysis analysis_reduce(int n, void* results) {
 	return ana;
 }
 
-Stats stat_reduce(int n, void* results) {
+Stats stats_reduce(int n, void* results) {
 	Stats sta = {0};
 	if (n == 0) {
 		return sta;
@@ -199,7 +199,7 @@ Stats stat_reduce(int n, void* results) {
 		sta.n = sta.n + stas[i].n;
 		int j;
 		for (j = 0; j < NVAL; j++){
-			sta.histogram[i] = sta.histogram[i] + stas[i].histogram[j];
+			sta.histogram[j] = sta.histogram[j] + stas[i].histogram[j];
 		}
 		
 	}
