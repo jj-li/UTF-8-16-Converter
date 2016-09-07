@@ -206,3 +206,27 @@ Stats stats_reduce(int n, void* results) {
 	
 	return sta;
 }
+
+void analysis_print(struct Analysis res, int nbytes, int hist) {
+	printf("File: %s\n", res.filename);
+	printf("Longest line length: %d\n", res.lnlen);
+	printf("Longest line number: %d\n", res.lnno);
+	if (hist == 0) {
+		printf("\n");
+	}
+	if (hist != 0) {
+		printf("Total Bytes in directory: %d\n", nbytes);
+		printf("Histogram:\n");
+		int i;
+		int j;
+		for (i = 0; i < 128; i++) {
+			if (res.ascii[i] > 0) {
+				printf(" %d:", i);
+				for (j = 0; j < res.ascii[i]; j++) {
+					printf("-");
+				}
+				printf("\n");
+			}
+		}
+	}
+}

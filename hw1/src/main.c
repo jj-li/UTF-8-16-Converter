@@ -21,7 +21,13 @@ int cat(FILE* f, void* res, char* filename) {
 int main(int argc, char** argv) {
     //int sum = map("rsrc/ana_light/", stats_space, sizeof(Stats), cat);
     //printf("%d\n",sum);
-    //validateargs(argc,argv);
+    int success = validateargs(argc,argv);
+    if (success == -1){
+    	return EXIT_FAILURE;
+    }
+    else if (success == 0) {
+    	return EXIT_SUCCESS;
+    }
     memset(analysis_space, 0, sizeof(analysis_space));
     memset(stats_space, 0, sizeof(stats_space));
     /*struct Analysis ana1 = {0};
