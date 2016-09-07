@@ -230,3 +230,114 @@ void analysis_print(struct Analysis res, int nbytes, int hist) {
 		}
 	}
 }
+
+void stats_print(Stats res, int hist) {
+	int totalCount = 0;
+	int i;
+	if (hist != 0) {
+		printf("Histogram:\n");
+		int j;
+		for (i = 0; i < NVAL; i++) {
+			if (res.histogram[i] > 0) {
+				printf("%d :", i);
+				for (j = 0; j < res.histogram[i]; j++) {
+					printf("-");
+				}
+				totalCount = totalCount + res.histogram[i];
+				printf("\n\n");
+			}
+		}
+	}
+	else {
+		for (i = 0; i < NVAL; i++) {
+			totalCount = totalCount + res.histogram[i];
+		}
+	}
+	printf("Count: %d\n", totalCount);
+	double count = totalCount;
+	printf("Mean: %.6f\n", res.sum/count);
+	int min = 0;
+	int max = NVAL-1;
+	int maxOccurrence = 0;
+	int modes[NVAL];
+	double median;
+	double q1;
+	double q3;
+	//Finding min and the maximum occurence of a number
+	for (i = 0; i < NVAL; i++) {
+		if (res.histogram[i] > 0) {
+			if (res.histogram[i] > maxOccurrence) {
+				maxOccurrence = res.histogram[i];
+			}
+			if (res.histogram[min] == 0) {
+				min = i;
+			}
+		}
+		modes[i] = 0;
+	}
+	maxOccurrence = 0; //Reusing max occurence for number of modes
+	//Finding max and mode(s)
+	for (i = NVAL-1; i >= 0; i--) {
+		if (res.histogram[i] > 0) {
+			if (res.histogram[max] == 0) {
+				max = i;
+			}
+			if (res.histogram[i] >= maxOccurrence) {
+				modes[i] = 1;
+				maxOccurrence++;
+			}
+		}
+	}
+	//Finding median
+	if (NVAL % 2 != 0) {
+		int position = NVAL/2 + 1;
+		for (i = 0; i < NVAL; i++) {
+			if (res.histogram[i] > 0) {
+				position--;
+				if (position == 0) {
+					median = i;
+					break;
+				}
+			}
+		}
+	}
+	else {
+		int position = NVAL/2;
+		double median1;
+		for (i = 0; i < NVAL; i++) {
+			if (res.histogram[i] > 0) {
+				position--;
+				if (position == 0) {
+					median1 = i;
+				}
+				if (position < 0) {
+					median = (median1 + i)/2;
+					break;
+				}
+			}
+		}
+	}
+	//Finding Q1
+	q1 = (min + median)/2;
+	//Finding Q3
+	q3 = (max + median)/2;
+	printf("Mode: ");
+	for (i = 0; i < NVAL; i++) {
+		if (modes[i] > 0) {
+			printf("%d", i);
+			maxOccurrence--;
+			if (maxOccurrence > 0) {
+				printf(" ");
+			}
+			else {
+				printf("\n");
+				break;
+			}
+		}
+	}
+	printf("Median: %0.6f\n", median);
+	printf("Q1: %0.6f\n", q1);
+	printf("Q3: %0.6f\n", q3);
+	printf("Min: %d\n", min);
+	printf("Max: %d\n", max);
+}
