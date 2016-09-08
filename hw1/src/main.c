@@ -21,15 +21,6 @@ int cat(FILE* f, void* res, char* filename) {
 int main(int argc, char** argv) {
     //int sum = map("rsrc/ana_light/", stats_space, sizeof(Stats), cat);
     //printf("%d\n",sum);
-    int success = validateargs(argc,argv);
-    if (success == -1){
-    	return EXIT_FAILURE;
-    }
-    else if (success == 0) {
-    	return EXIT_SUCCESS;
-    }
-    memset(analysis_space, 0, sizeof(analysis_space));
-    memset(stats_space, 0, sizeof(stats_space));
     /*struct Analysis ana1 = {0};
     struct Analysis ana2 = {0};
     struct Analysis ana3 = {0};
@@ -58,7 +49,7 @@ int main(int argc, char** argv) {
     for (i = 0; i < 128; i++) {
     	printf("The histogram data is %d at %d\n", final.ascii[i], i);
     }*/
-    Stats stat1 = {0};
+    /*Stats stat1 = {0};
     Stats stat2 = {0};
     Stats stat3 = {0};
     int i;
@@ -85,6 +76,28 @@ int main(int argc, char** argv) {
     printf("The total n is %d\n", final.n);
     for (i = 0; i < NVAL; i++) {
     	printf("The histogram data is %d at %d\n", final.histogram[i], i);
+    }*/
+    /* TO KEEP
+    int success = validateargs(argc,argv);
+    if (success == -1){
+    	return EXIT_FAILURE;
     }
-    
+    else if (success == 0) {
+    	return EXIT_SUCCESS;
+    }
+    memset(analysis_space, 0, sizeof(analysis_space));
+    memset(stats_space, 0, sizeof(stats_space));
+    */
+   	int numFiles = nfiles("rsrc/ana_light/");
+    int nBytes = map("rsrc/ana_light/", analysis_space, sizeof(analysis_space[0]), analysis);
+    int i;
+    for (i = 0; i < numFiles; i++) {
+    	printf("%p\n", &(analysis_space[i]));
+    	if (i == (numFiles-1)) {
+    		//analysis_print(analysis_reduce(numFiles, analysis_space), nBytes, 5);
+    	}
+    	else {
+    		//analysis_print(analysis_space[i], nBytes, 0);
+    	}
+    }
 }

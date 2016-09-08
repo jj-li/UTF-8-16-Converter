@@ -232,12 +232,13 @@ void analysis_print(struct Analysis res, int nbytes, int hist) {
 }
 
 void stats_print(Stats res, int hist) {
+	int numElements = sizeof(res.histogram)/sizeof(res.histogram)[0];
 	int totalCount = 0;
 	int i;
 	if (hist != 0) {
 		printf("Histogram:\n");
 		int j;
-		for (i = 0; i < NVAL; i++) {
+		for (i = 0; i < numElements; i++) {
 			if (res.histogram[i] > 0) {
 				printf("%d :", i);
 				for (j = 0; j < res.histogram[i]; j++) {
@@ -249,7 +250,7 @@ void stats_print(Stats res, int hist) {
 		}
 	}
 	else {
-		for (i = 0; i < NVAL; i++) {
+		for (i = 0; i < numElements; i++) {
 			totalCount = totalCount + res.histogram[i];
 		}
 	}
@@ -257,14 +258,14 @@ void stats_print(Stats res, int hist) {
 	double count = totalCount;
 	printf("Mean: %.6f\n", res.sum/count);
 	int min = 0;
-	int max = NVAL-1;
+	int max = numElements-1;
 	int maxOccurrence = 0;
-	int modes[NVAL];
+	int modes[numElements];
 	double median;
 	double q1;
 	double q3;
 	//Finding min and the maximum occurence of a number
-	for (i = 0; i < NVAL; i++) {
+	for (i = 0; i < numElements; i++) {
 		if (res.histogram[i] > 0) {
 			if (res.histogram[i] > maxOccurrence) {
 				maxOccurrence = res.histogram[i];
@@ -277,7 +278,7 @@ void stats_print(Stats res, int hist) {
 	}
 	maxOccurrence = 0; //Reusing max occurence for number of modes
 	//Finding max and mode(s)
-	for (i = NVAL-1; i >= 0; i--) {
+	for (i = numElements-1; i >= 0; i--) {
 		if (res.histogram[i] > 0) {
 			if (res.histogram[max] == 0) {
 				max = i;
@@ -289,9 +290,9 @@ void stats_print(Stats res, int hist) {
 		}
 	}
 	//Finding median
-	if (NVAL % 2 != 0) {
-		int position = NVAL/2 + 1;
-		for (i = 0; i < NVAL; i++) {
+	if (numElements % 2 != 0) {
+		int position = numElements/2 + 1;
+		for (i = 0; i < numElements; i++) {
 			if (res.histogram[i] > 0) {
 				position--;
 				if (position == 0) {
@@ -302,9 +303,9 @@ void stats_print(Stats res, int hist) {
 		}
 	}
 	else {
-		int position = NVAL/2;
+		int position = numElements/2;
 		double median1;
-		for (i = 0; i < NVAL; i++) {
+		for (i = 0; i < numElements; i++) {
 			if (res.histogram[i] > 0) {
 				position--;
 				if (position == 0) {
@@ -322,7 +323,7 @@ void stats_print(Stats res, int hist) {
 	//Finding Q3
 	q3 = (max + median)/2;
 	printf("Mode: ");
-	for (i = 0; i < NVAL; i++) {
+	for (i = 0; i < numElements; i++) {
 		if (modes[i] > 0) {
 			printf("%d", i);
 			maxOccurrence--;
@@ -354,18 +355,29 @@ int analysis(FILE* f, void* res, char* filename) {
 	while((c = fgetc(f)) != EOF) {
         ana.ascii[c] = ana.ascii[c] + 1;
         if (c == 10) {
+        	lnno = lnno + 1;
         	if (lnlen > ana.lnlen) {
         		ana.lnlen = lnlen;
         		ana.lnno = lnno;
         	}
         	lnlen = 0;
-        	lnno = lnno + 1;
         }
         else {
         	lnlen = lnlen + 1;
         }
         bytesRead = bytesRead + 1;
     }
+    printf("res: %p vs ana: %p\n", res, &ana);//TO DELETE
     res = &ana;
+    //TO DELETE
+    printf("res: %p vs ana: %p\n\n", res, &ana);
+   // printf("The file name is %s\n", ana.filename);
+   // printf("The longest line length is %d\n", ana.lnlen);
+    //printf("The longest line number is %d\n", ana.lnno);
+   // for (int i = 0; i < 128; i++) {
+    //	printf("The histogram data is %d at %d\n", ana.ascii[i], i);
+    //}
+    //printf("\n");
+    //
     return bytesRead;
 }
