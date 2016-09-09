@@ -99,7 +99,7 @@ int main(int argc, char** argv) {
     analysis_print(analysis_reduce(numFiles, analysis_space), nBytes, 10);
     */
     int numFiles = nfiles("rsrc/stats_light/");
-    int nBytes = map("rsrc/stats_light/", stats_space, sizeof(stats_space[0]), stats);
+    int nBytes = map("rsrc/stats_light", stats_space, sizeof(stats_space[0]), stats);
     int i;
     for (i = 0; i < numFiles; i++) {
     	stats_print(stats_space[i], 0);

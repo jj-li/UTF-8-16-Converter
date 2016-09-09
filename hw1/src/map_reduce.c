@@ -20,8 +20,14 @@ int validateargs(int argc, char** argv){
 	//Check for -h first
 	for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i],hFlag) == 0) {
-			printf("%s",statement);
-			return EXIT_SUCCESS;
+			if (i == 1) {
+				printf("%s",statement);
+				return EXIT_SUCCESS;
+			}
+			else {
+				printf("%s",statement);
+				return -1;
+			}
 		}
 	}
 	int exitNumber;
@@ -120,12 +126,18 @@ int nfiles(char* dir) {
 }
 
 int map(char* dir, void* results, size_t size, int (*act)(FILE* f, void* res, char* fn)) {
+	char c = dir[strlen(dir)-1];
+	char newDirPath[strlen(dir)+2];
+	if (c != '/') {
+		strcpy(newDirPath, dir);
+		strcat(newDirPath, "/\0");
+		dir = newDirPath;
+	}
 	DIR *oDir = opendir(dir);
 	if (oDir == NULL) {
 		closedir(oDir);
 		return -1;
 	}
-	//int elementSize = size/NFILES;
 	struct dirent *temp = readdir(oDir);
 	int sum = 0;
 	while (temp != NULL) {
@@ -133,6 +145,7 @@ int map(char* dir, void* results, size_t size, int (*act)(FILE* f, void* res, ch
 			char fullPath[strlen(dir)+strlen(temp->d_name)+1];
 			strcpy(fullPath, dir);
 			strcat(fullPath, temp->d_name);
+			strcat(fullPath, "\0");
 			FILE *oF = fopen(fullPath, "r");
 			if (oF == NULL) {
 				return -1;
@@ -143,9 +156,6 @@ int map(char* dir, void* results, size_t size, int (*act)(FILE* f, void* res, ch
 				return -1;
 			}
 			fclose(oF);
-			//char* tempResults = (char*)results;
-			//tempResults = tempResults + elementSize;
-			//results = (void*) tempResults;
 			results = results + size;
 			sum = sum + returnedNumber;
 		}
@@ -289,8 +299,8 @@ void stats_print(Stats res, int hist) {
 		}
 		modes[i] = 0;
 	}
-	maxOccurrence = 0; //Reusing max occurence for number of modes
 	//Finding max and mode(s)
+	int numModes = 0;
 	for (i = numElements-1; i >= 0; i--) {
 		if (res.histogram[i] > 0) {
 			if (res.histogram[max] == 0) {
@@ -298,7 +308,7 @@ void stats_print(Stats res, int hist) {
 			}
 			if (res.histogram[i] >= maxOccurrence) {
 				modes[i] = 1;
-				maxOccurrence++;
+				numModes++;
 			}
 		}
 	}
@@ -308,8 +318,8 @@ void stats_print(Stats res, int hist) {
 	int q3TotalCount;
 	if (totalCount % 2 != 0) {
 		medianPosition = totalCount/2 + 1;
-		q1TotalCount = medianPosition - 1;
-		q3TotalCount = medianPosition - 1;
+		q1TotalCount = (totalCount-1)/2;
+		q3TotalCount = (totalCount-1)/2;
 		median = numbers[medianPosition-1];
 	}
 	else {
@@ -329,7 +339,7 @@ void stats_print(Stats res, int hist) {
 		q1 = q1Numbers[(q1TotalCount/2 + 1)];
 	}
 	else {
-		q1 = (q1Numbers[(q1TotalCount/2)] + q1Numbers[(q1TotalCount/2+1)]) / 2.0;
+		q1 = (q1Numbers[(q1TotalCount/2)] + q1Numbers[(q1TotalCount/2-1)]) / 2.0;
 	}
 	//Finding Q3
 	int q3Numbers[q3TotalCount];
@@ -342,14 +352,14 @@ void stats_print(Stats res, int hist) {
 		q3 = q3Numbers[(q3TotalCount/2 + 1)];
 	}
 	else {
-		q3 = (q3Numbers[(q3TotalCount/2)] + q3Numbers[(q3TotalCount/2+1)]) / 2.0;
+		q3 = (q3Numbers[(q3TotalCount/2)] + q3Numbers[(q3TotalCount/2-1)]) / 2.0;
 	}
 	printf("Mode: ");
 	for (i = 0; i < numElements; i++) {
 		if (modes[i] > 0) {
 			printf("%d", i);
-			maxOccurrence--;
-			if (maxOccurrence > 0) {
+			numModes--;
+			if (numModes > 0) {
 				printf(" ");
 			}
 			else {
