@@ -214,9 +214,6 @@ void analysis_print(struct Analysis res, int nbytes, int hist) {
 	printf("File: %s\n", res.filename);
 	printf("Longest line length: %d\n", res.lnlen);
 	printf("Longest line number: %d\n", res.lnno);
-	if (hist == 0) {
-		printf("\n");
-	}
 	if (hist != 0) {
 		printf("Total Bytes in directory: %d\n", nbytes);
 		printf("Histogram:\n");
@@ -248,14 +245,27 @@ void stats_print(Stats res, int hist) {
 					printf("-");
 				}
 				totalCount = totalCount + res.histogram[i];
-				printf("\n\n");
+				printf("\n");
 			}
 		}
+		printf("\n");
 	}
 	else {
+		printf("File: %s\n", res.filename);
 		for (i = 0; i < numElements; i++) {
 			totalCount = totalCount + res.histogram[i];
 		}
+	}
+	int numbers[totalCount];
+	int j = 0;
+	for (i = 0; i < numElements; i++) {
+		int temp = res.histogram[i];
+		while (temp > 0) {
+			numbers[j] = i;
+			temp--;
+			j++;
+		}
+
 	}
 	printf("Count: %d\n", totalCount);
 	double count = totalCount;
@@ -293,38 +303,47 @@ void stats_print(Stats res, int hist) {
 		}
 	}
 	//Finding median
-	if (numElements % 2 != 0) {
-		int position = numElements/2 + 1;
-		for (i = 0; i < numElements; i++) {
-			if (res.histogram[i] > 0) {
-				position--;
-				if (position == 0) {
-					median = i;
-					break;
-				}
-			}
-		}
+	int medianPosition;
+	int q1TotalCount;
+	int q3TotalCount;
+	if (totalCount % 2 != 0) {
+		medianPosition = totalCount/2 + 1;
+		q1TotalCount = medianPosition - 1;
+		q3TotalCount = medianPosition - 1;
+		median = numbers[medianPosition-1];
 	}
 	else {
-		int position = numElements/2;
-		double median1;
-		for (i = 0; i < numElements; i++) {
-			if (res.histogram[i] > 0) {
-				position--;
-				if (position == 0) {
-					median1 = i;
-				}
-				if (position < 0) {
-					median = (median1 + i)/2;
-					break;
-				}
-			}
-		}
+		medianPosition = totalCount/2;
+		q1TotalCount = medianPosition;
+		q3TotalCount = medianPosition;
+		median = (numbers[medianPosition-1] + numbers[(medianPosition)]) / 2.0;
 	}
 	//Finding Q1
-	q1 = (min + median)/2;
+	int q1Numbers[q1TotalCount];
+	j = 0;
+	for (i = 0; i < q1TotalCount; i++) {
+		q1Numbers[i] = numbers[i];
+
+	}
+	if (q1TotalCount % 2 != 0) {
+		q1 = q1Numbers[(q1TotalCount/2 + 1)];
+	}
+	else {
+		q1 = (q1Numbers[(q1TotalCount/2)] + q1Numbers[(q1TotalCount/2+1)]) / 2.0;
+	}
 	//Finding Q3
-	q3 = (max + median)/2;
+	int q3Numbers[q3TotalCount];
+	j = totalCount-1;
+	for (i = 0; i < q3TotalCount; i++) {
+		q3Numbers[i] = numbers[j];
+		j = j - 1;
+	}
+	if (q3TotalCount % 2 != 0) {
+		q3 = q3Numbers[(q3TotalCount/2 + 1)];
+	}
+	else {
+		q3 = (q3Numbers[(q3TotalCount/2)] + q3Numbers[(q3TotalCount/2+1)]) / 2.0;
+	}
 	printf("Mode: ");
 	for (i = 0; i < numElements; i++) {
 		if (modes[i] > 0) {
@@ -370,18 +389,52 @@ int analysis(FILE* f, void* res, char* filename) {
         }
         bytesRead = bytesRead + 1;
     }
-    //printf("res: %p vs ana: %p\n", res, &ana);//TO DELETE
-    //res = &ana;
     memcpy(res, &ana, sizeof(ana));
-    //TO DELETE
-    //printf("res: %p vs ana: %p\n\n", res, &ana);
-   // printf("The file name is %s\n", ana.filename);
-   // printf("The longest line length is %d\n", ana.lnlen);
-    //printf("The longest line number is %d\n", ana.lnno);
-   // for (int i = 0; i < 128; i++) {
-    //	printf("The histogram data is %d at %d\n", ana.ascii[i], i);
-    //}
-    //printf("\n");
-    //
     return bytesRead;
+}
+
+int stats(FILE* f, void* res, char* filename) {
+	Stats sta = {0};
+	sta.sum = 0;
+	sta.n = 0;
+	sta.filename = filename;
+	int currentNum = -1;
+	int moreDigits = 0; //0 False, 1 True
+	char c;
+	while((c = fgetc(f)) != EOF) {
+		if (c == '-') {
+			if ((c = fgetc(f)) != EOF) {
+				if (c >= '0' && c<= '9') {
+					return -1;
+				}
+			}
+		}
+        if (c >= '0' && c<= '9') {
+        	if (moreDigits == 0) {
+        		currentNum = c - '0';
+        	}
+        	else {
+        		currentNum = currentNum * 10;
+        		currentNum = currentNum + (c - '0');
+        	}
+        	moreDigits = 1;
+        }
+        else {
+        	if (c != ' ' && c != '\n') {
+        		return -1;
+        	} 
+        	moreDigits = 0;
+        	if (currentNum > (NVAL-1)) {
+        		return -1;
+        	}
+        	if (currentNum >= 0) {
+        		sta.histogram[currentNum] = sta.histogram[currentNum] + 1;
+        		sta.n = sta.n + 1;
+        		sta.sum = sta.sum + currentNum;
+        		currentNum = -1;
+        	}
+        }
+    }
+    memcpy(res, &sta, sizeof(sta));
+    return 0;
 }

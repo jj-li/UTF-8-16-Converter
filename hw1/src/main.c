@@ -88,17 +88,22 @@ int main(int argc, char** argv) {
     memset(analysis_space, 0, sizeof(analysis_space));
     memset(stats_space, 0, sizeof(stats_space));
     */
+    /*
    	int numFiles = nfiles("rsrc/ana_light/");
     int nBytes = map("rsrc/ana_light/", analysis_space, sizeof(analysis_space[0]), analysis);
     int i;
     for (i = 0; i < numFiles; i++) {
-    	if (i == (numFiles-1)) {
-    		analysis_print(analysis_reduce(numFiles, analysis_space), nBytes, 5);
-    	}
-    	else {
-    		analysis_print(analysis_space[i], nBytes, 0);
-    	}
+    	analysis_print(analysis_space[i], nBytes, 0);
+    	printf("\n");
     }
-    printf("\n\n\n\n");
     analysis_print(analysis_reduce(numFiles, analysis_space), nBytes, 10);
+    */
+    int numFiles = nfiles("rsrc/stats_light/");
+    int nBytes = map("rsrc/stats_light/", stats_space, sizeof(stats_space[0]), stats);
+    int i;
+    for (i = 0; i < numFiles; i++) {
+    	stats_print(stats_space[i], 0);
+    	printf("\n");
+    }
+    stats_print(stats_reduce(numFiles, stats_space), 10);
 }
