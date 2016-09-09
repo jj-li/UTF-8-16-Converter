@@ -92,12 +92,13 @@ int main(int argc, char** argv) {
     int nBytes = map("rsrc/ana_light/", analysis_space, sizeof(analysis_space[0]), analysis);
     int i;
     for (i = 0; i < numFiles; i++) {
-    	printf("%p\n", &(analysis_space[i]));
     	if (i == (numFiles-1)) {
-    		//analysis_print(analysis_reduce(numFiles, analysis_space), nBytes, 5);
+    		analysis_print(analysis_reduce(numFiles, analysis_space), nBytes, 5);
     	}
     	else {
-    		//analysis_print(analysis_space[i], nBytes, 0);
+    		analysis_print(analysis_space[i], nBytes, 0);
     	}
     }
+    printf("\n\n\n\n");
+    analysis_print(analysis_reduce(numFiles, analysis_space), nBytes, 10);
 }

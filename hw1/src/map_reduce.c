@@ -134,6 +134,9 @@ int map(char* dir, void* results, size_t size, int (*act)(FILE* f, void* res, ch
 			strcpy(fullPath, dir);
 			strcat(fullPath, temp->d_name);
 			FILE *oF = fopen(fullPath, "r");
+			if (oF == NULL) {
+				return -1;
+			}
 			memset(results, 0, size);
 			int returnedNumber = act(oF, results, temp->d_name);
 			if (returnedNumber == -1) {
@@ -173,7 +176,7 @@ struct Analysis analysis_reduce(int n, void* results) {
 			ana.lnno = anas[i].lnno;
 			int j;
 			for (j = 0; j < 128; j++) {
-				ana.ascii[j] = anas[i].ascii[j];
+				ana.ascii[j] = ana.ascii[j] + anas[i].ascii[j];
 			}
 		}
 	}
@@ -367,10 +370,11 @@ int analysis(FILE* f, void* res, char* filename) {
         }
         bytesRead = bytesRead + 1;
     }
-    printf("res: %p vs ana: %p\n", res, &ana);//TO DELETE
-    res = &ana;
+    //printf("res: %p vs ana: %p\n", res, &ana);//TO DELETE
+    //res = &ana;
+    memcpy(res, &ana, sizeof(ana));
     //TO DELETE
-    printf("res: %p vs ana: %p\n\n", res, &ana);
+    //printf("res: %p vs ana: %p\n\n", res, &ana);
    // printf("The file name is %s\n", ana.filename);
    // printf("The longest line length is %d\n", ana.lnlen);
     //printf("The longest line number is %d\n", ana.lnno);
