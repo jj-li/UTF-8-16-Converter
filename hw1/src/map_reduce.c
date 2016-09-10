@@ -179,7 +179,7 @@ struct Analysis analysis_reduce(int n, void* results) {
 		ana.ascii[i] = anas[0].ascii[i];
 	}
 	for (i = 1; i < n; i++) {
-		if (ana.lnno < anas[i].lnno) {
+		if (ana.lnlen < anas[i].lnlen) {
 			ana.lnno = anas[i].lnno;
 			ana.filename = anas[i].filename;
 			ana.lnlen = anas[i].lnlen;
