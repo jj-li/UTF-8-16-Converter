@@ -243,7 +243,6 @@ void analysis_print(struct Analysis res, int nbytes, int hist) {
 
 void stats_print(Stats res, int hist) {
 	int numElements = sizeof(res.histogram)/sizeof(res.histogram[0]);;
-	int totalCount = 0;
 	int i;
 	if (hist != 0) {
 		printf("Histogram:\n");
@@ -254,7 +253,6 @@ void stats_print(Stats res, int hist) {
 				for (j = 0; j < res.histogram[i]; j++) {
 					printf("-");
 				}
-				totalCount = totalCount + res.histogram[i];
 				printf("\n");
 			}
 		}
@@ -262,11 +260,8 @@ void stats_print(Stats res, int hist) {
 	}
 	else {
 		printf("File: %s\n", res.filename);
-		for (i = 0; i < numElements; i++) {
-			totalCount = totalCount + res.histogram[i];
-		}
 	}
-	int numbers[totalCount];
+	int numbers[res.n];
 	int j = 0;
 	for (i = 0; i < numElements; i++) {
 		int temp = res.histogram[i];
@@ -278,7 +273,7 @@ void stats_print(Stats res, int hist) {
 
 	}
 	printf("Count: %d\n", res.n);
-	double count = totalCount;
+	double count = res.n;
 	printf("Mean: %.6f\n", res.sum/count);
 	int min = 0;
 	int max = numElements-1;
@@ -316,14 +311,14 @@ void stats_print(Stats res, int hist) {
 	int medianPosition;
 	int q1TotalCount;
 	int q3TotalCount;
-	if (totalCount % 2 != 0) {
-		medianPosition = totalCount/2 + 1;
-		q1TotalCount = (totalCount-1)/2;
-		q3TotalCount = (totalCount-1)/2;
+	if (res.n % 2 != 0) {
+		medianPosition = res.n/2 + 1;
+		q1TotalCount = (res.n-1)/2;
+		q3TotalCount = (res.n-1)/2;
 		median = numbers[medianPosition-1];
 	}
 	else {
-		medianPosition = totalCount/2;
+		medianPosition = res.n/2;
 		q1TotalCount = medianPosition;
 		q3TotalCount = medianPosition;
 		median = (numbers[medianPosition-1] + numbers[(medianPosition)]) / 2.0;
@@ -343,7 +338,7 @@ void stats_print(Stats res, int hist) {
 	}
 	//Finding Q3
 	int q3Numbers[q3TotalCount];
-	j = totalCount-1;
+	j = res.n-1;
 	for (i = 0; i < q3TotalCount; i++) {
 		q3Numbers[i] = numbers[j];
 		j = j - 1;

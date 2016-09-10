@@ -26,8 +26,6 @@ int main(int argc, char** argv) {
     else if (success == 0) {
     	return EXIT_SUCCESS;
     }
-    memset(analysis_space, 0, sizeof(analysis_space));
-    memset(stats_space, 0, sizeof(stats_space));
     int num;
    	char usage[] = "Usage: \t./mapreduce [h|v] FUNC DIR\n\tFUNC\tWhich operation you would like to run on the data:\n\t\tana - Analysis of various text files in a directory.\n\t\tstats - Calculates stats on files which contain only numbers.\n\tDIR\tThe directory in which the files are located.\n\n\tOptions:\n\t-h\tPrints this help menu.\n\t-v\tPrints the map function's results, stating the file it's from.\n\0";
     if (success == 1) {
@@ -59,6 +57,7 @@ int main(int argc, char** argv) {
     }
     else {
     	int numFiles = nfiles(argv[3]);
+        printf(" ");
     	num = map(argv[3], stats_space, sizeof(Stats), stats);
     	if (num == -1) {
     		printf("%s\n", usage);
