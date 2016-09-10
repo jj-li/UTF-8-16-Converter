@@ -171,7 +171,7 @@ struct Analysis analysis_reduce(int n, void* results) {
 		return ana;
 	}
 	struct Analysis* anas = (struct Analysis*)results;
-	ana.filename = anas[0].filename;
+	memcpy(&(ana.filename), &(anas[0].filename), sizeof(anas[0].filename));
 	ana.lnno = anas[0].lnno;
 	ana.lnlen = anas[0].lnlen;
 	int i;
@@ -181,7 +181,7 @@ struct Analysis analysis_reduce(int n, void* results) {
 	for (i = 1; i < n; i++) {
 		if (ana.lnlen < anas[i].lnlen) {
 			ana.lnno = anas[i].lnno;
-			ana.filename = anas[i].filename;
+			memcpy(&(ana.filename), &(anas[i].filename), sizeof(anas[i].filename));
 			ana.lnlen = anas[i].lnlen;
 			ana.lnno = anas[i].lnno;
 			int j;
@@ -372,7 +372,8 @@ void stats_print(Stats res, int hist) {
 
 int analysis(FILE* f, void* res, char* filename) {
 	struct Analysis ana = {0};
-	ana.filename = filename;
+	memcpy(&(ana.filename), &filename, sizeof(filename));
+	memset(&(ana.ascii), 0, sizeof(ana.ascii));
 	char c;
 	int lnlen = 0;
 	ana.lnlen = 0;
@@ -402,7 +403,8 @@ int stats(FILE* f, void* res, char* filename) {
 	Stats sta = {0};
 	sta.sum = 0;
 	sta.n = 0;
-	sta.filename = filename;
+	memcpy(&(sta.filename), &filename, sizeof(filename));
+	memset(&(sta.histogram), 0, sizeof(sta.histogram));
 	int currentNum = -1;
 	int moreDigits = 0; //0 False, 1 True
 	char c;

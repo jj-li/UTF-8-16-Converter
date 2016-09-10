@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
     if (success == -1){
     	return EXIT_FAILURE;
     }
-    else if (success == 0) {
+    if (success == 0) {
     	return EXIT_SUCCESS;
     }
     int num;
@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
     	}
     	analysis_print(analysis_reduce(nfiles(argv[2]), analysis_space), num, 5);
     }
-    else if (success == 2){
+    if (success == 2){
     	num = map(argv[2], stats_space, sizeof(Stats), stats);
     	if (num == -1) {
     		printf("%s\n", usage);
@@ -44,7 +44,7 @@ int main(int argc, char** argv) {
     	}
     	stats_print(stats_reduce(nfiles(argv[2]), stats_space), 5);
     }
-    else if (success == 3) {
+    if (success == 3) {
     	int numFiles = nfiles(argv[3]);
     	num = map(argv[3], analysis_space, sizeof(struct Analysis), analysis);
     	if (num == -1) {
@@ -56,11 +56,11 @@ int main(int argc, char** argv) {
     		analysis_print(analysis_space[i], num, 0);
     		printf("\n");
     	}
-    	analysis_print(analysis_reduce(numFiles, analysis_space), num, 5);
+        struct Analysis finalAna = analysis_reduce(numFiles, analysis_space);
+    	analysis_print(finalAna, num, 5);
     }
-    else {
+    if (success == 4) {
     	int numFiles = nfiles(argv[3]);
-        printf(" ");
     	num = map(argv[3], stats_space, sizeof(Stats), stats);
     	if (num == -1) {
     		printf("%s\n", usage);
@@ -71,6 +71,7 @@ int main(int argc, char** argv) {
     		stats_print(stats_space[i], 0);
     		printf("\n");
     	}
-    	stats_print(stats_reduce(numFiles, stats_space), 5);
+        Stats finalStat = stats_reduce(numFiles, stats_space);
+    	stats_print(finalStat, 5);
     }
 }

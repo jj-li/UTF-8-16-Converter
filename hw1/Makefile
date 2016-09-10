@@ -31,3 +31,4 @@ all: $(EXEDIR)/mapreduce
 
 clean:
 	rm -f $(ODIR)/*.o $(EXEDIR)/* *~ core $(INCDIR)/*~
+	rmdir $(ODIR) $(EXEDIR)
