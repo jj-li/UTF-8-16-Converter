@@ -242,7 +242,7 @@ void analysis_print(struct Analysis res, int nbytes, int hist) {
 }
 
 void stats_print(Stats res, int hist) {
-	int numElements = sizeof(res.histogram)/sizeof(res.histogram)[0];
+	int numElements = sizeof(res.histogram)/sizeof(res.histogram[0]);;
 	int totalCount = 0;
 	int i;
 	if (hist != 0) {
@@ -277,7 +277,7 @@ void stats_print(Stats res, int hist) {
 		}
 
 	}
-	printf("Count: %d\n", totalCount);
+	printf("Count: %d\n", res.n);
 	double count = totalCount;
 	printf("Mean: %.6f\n", res.sum/count);
 	int min = 0;

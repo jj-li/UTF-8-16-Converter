@@ -19,65 +19,6 @@ int cat(FILE* f, void* res, char* filename) {
 }
 
 int main(int argc, char** argv) {
-    //int sum = map("rsrc/ana_light/", stats_space, sizeof(Stats), cat);
-    //printf("%d\n",sum);
-    /*struct Analysis ana1 = {0};
-    struct Analysis ana2 = {0};
-    struct Analysis ana3 = {0};
-    int i;
-    for (i = 0; i < 128; i++) {
-    	ana1.ascii[i] = i;
-    	ana2.ascii[i] = 99;
-    	ana3.ascii[i] = i;
-    }
-    ana1.filename = "One\0";
-    ana1.lnlen = 10;
-    ana1.lnno = 100;
-    ana2.filename = "Two\0";
-    ana2.lnlen = 20;
-    ana2.lnno = 500;
-    ana3.filename = "Three\0";
-    ana3.lnlen = 30;
-    ana3.lnno = 300;
-    analysis_space[0] = ana1;
-    analysis_space[1] = ana2;
-    analysis_space[2] = ana3;
-    struct Analysis final = analysis_reduce(3, analysis_space);
-    printf("The file name is %s\n", final.filename);
-    printf("The longest line length is %d\n", final.lnlen);
-    printf("The longest line number is %d\n", final.lnno);
-    for (i = 0; i < 128; i++) {
-    	printf("The histogram data is %d at %d\n", final.ascii[i], i);
-    }*/
-    /*Stats stat1 = {0};
-    Stats stat2 = {0};
-    Stats stat3 = {0};
-    int i;
-    for (i = 0; i < NVAL; i++) {
-    	stat1.histogram[i] = i;
-    	stat2.histogram[i] = i;
-    	stat3.histogram[i] = i;
-    }
-    stat1.filename = "One\0";
-    stat1.sum = 10;
-    stat1.n = 100;
-    stat2.filename = "Two\0";
-    stat2.sum = 20;
-    stat2.n = 200;
-    stat3.filename = "Three\0";
-    stat3.sum = 30;
-    stat3.n = 300;
-    stats_space[0] = stat1;
-    stats_space[1] = stat2;
-    stats_space[2] = stat3;
-    Stats final = stats_reduce(3, stats_space);
-    printf("The file name is %s\n", final.filename);
-    printf("The total sum is %d\n", final.sum);
-    printf("The total n is %d\n", final.n);
-    for (i = 0; i < NVAL; i++) {
-    	printf("The histogram data is %d at %d\n", final.histogram[i], i);
-    }*/
-    /* TO KEEP
     int success = validateargs(argc,argv);
     if (success == -1){
     	return EXIT_FAILURE;
@@ -87,23 +28,46 @@ int main(int argc, char** argv) {
     }
     memset(analysis_space, 0, sizeof(analysis_space));
     memset(stats_space, 0, sizeof(stats_space));
-    */
-    /*
-   	int numFiles = nfiles("rsrc/ana_light/");
-    int nBytes = map("rsrc/ana_light/", analysis_space, sizeof(analysis_space[0]), analysis);
-    int i;
-    for (i = 0; i < numFiles; i++) {
-    	analysis_print(analysis_space[i], nBytes, 0);
-    	printf("\n");
+    int num;
+   	char usage[] = "Usage: \t./mapreduce [h|v] FUNC DIR\n\tFUNC\tWhich operation you would like to run on the data:\n\t\tana - Analysis of various text files in a directory.\n\t\tstats - Calculates stats on files which contain only numbers.\n\tDIR\tThe directory in which the files are located.\n\n\tOptions:\n\t-h\tPrints this help menu.\n\t-v\tPrints the map function's results, stating the file it's from.\n\0";
+    if (success == 1) {
+    	num = map(argv[2], analysis_space, sizeof(struct Analysis), analysis);
+    	if (num == -1) {
+    		printf("%s\n", usage);
+    	}
+    	analysis_print(analysis_reduce(nfiles(argv[2]), analysis_space), num, 5);
     }
-    analysis_print(analysis_reduce(numFiles, analysis_space), nBytes, 10);
-    */
-    int numFiles = nfiles("rsrc/stats_light/");
-    int nBytes = map("rsrc/stats_light", stats_space, sizeof(stats_space[0]), stats);
-    int i;
-    for (i = 0; i < numFiles; i++) {
-    	stats_print(stats_space[i], 0);
-    	printf("\n");
+    else if (success == 2){
+    	num = map(argv[2], stats_space, sizeof(Stats), stats);
+    	if (num == -1) {
+    		printf("%s\n", usage);
+    	}
+    	stats_print(stats_reduce(nfiles(argv[2]), stats_space), 5);
     }
-    stats_print(stats_reduce(numFiles, stats_space), 10);
+    else if (success == 3) {
+    	int numFiles = nfiles(argv[3]);
+    	num = map(argv[3], analysis_space, sizeof(struct Analysis), analysis);
+    	if (num == -1) {
+    		printf("%s\n", usage);
+    	}
+    	int i;
+    	for (i = 0; i < numFiles; i++) {
+    		analysis_print(analysis_space[i], num, 0);
+    		printf("\n");
+    	}
+    	analysis_print(analysis_reduce(numFiles, analysis_space), num, 5);
+    }
+    else {
+    	int numFiles = nfiles(argv[3]);
+    	num = map(argv[3], stats_space, sizeof(Stats), stats);
+    	if (num == -1) {
+    		printf("%s\n", usage);
+    	}
+    	int i;
+    	for (i = 0; i < numFiles; i++) {
+    		stats_print(stats_space[i], 0);
+    		printf("\n");
+    	}
+    	stats_print(stats_reduce(numFiles, stats_space), 5);
+    }
 }
