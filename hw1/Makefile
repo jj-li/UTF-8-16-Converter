@@ -5,14 +5,29 @@
 # This make file must build according to the structure described in the
 # introduction doc, if it doesn't you will get a ZERO!
 
-#CFLAGS = -Wall -Werror -I include/
+IDIR =include/
+CC=gcc
+CFLAGS=-Wall -Werror -I$(IDIR)
+ODIR = build
+EXEDIR = bin
 
-#all: main map_reduce
+_DEPS = const.h map_reduce.h
+DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
 
-#main:
-#	gcc $(CFLAGS) src/main.c
+_OBJ= main.o map_reduce.o
+OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
-#map_reduce:
-#	gcc $(CFLAGS) src/map_reduce.c
+$(ODIR)/%.o: src/%.c $(DEPS)
+	@mkdir -p $(ODIR)
+	$(CC) -c -o $@ $< $(CFLAGS)
 
-gcc -o a src/main.c src/map_reduce.c -I include/
+$(EXEDIR)/mapreduce: $(OBJ)
+	@mkdir -p $(EXEDIR)
+	gcc -o $@ $^ $(CLFAGS)
+
+all: $(EXEDIR)/mapreduce
+
+.PHONY: clean
+
+clean:
+	rm -f $(ODIR)/*.o $(EXEDIR)/* *~ core $(INCDIR)/*~

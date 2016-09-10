@@ -32,6 +32,7 @@ int main(int argc, char** argv) {
     	num = map(argv[2], analysis_space, sizeof(struct Analysis), analysis);
     	if (num == -1) {
     		printf("%s\n", usage);
+            return EXIT_FAILURE;
     	}
     	analysis_print(analysis_reduce(nfiles(argv[2]), analysis_space), num, 5);
     }
@@ -39,6 +40,7 @@ int main(int argc, char** argv) {
     	num = map(argv[2], stats_space, sizeof(Stats), stats);
     	if (num == -1) {
     		printf("%s\n", usage);
+            return EXIT_FAILURE;
     	}
     	stats_print(stats_reduce(nfiles(argv[2]), stats_space), 5);
     }
@@ -47,6 +49,7 @@ int main(int argc, char** argv) {
     	num = map(argv[3], analysis_space, sizeof(struct Analysis), analysis);
     	if (num == -1) {
     		printf("%s\n", usage);
+            return EXIT_FAILURE;
     	}
     	int i;
     	for (i = 0; i < numFiles; i++) {
@@ -61,6 +64,7 @@ int main(int argc, char** argv) {
     	num = map(argv[3], stats_space, sizeof(Stats), stats);
     	if (num == -1) {
     		printf("%s\n", usage);
+            return EXIT_FAILURE;
     	}
     	int i;
     	for (i = 0; i < numFiles; i++) {

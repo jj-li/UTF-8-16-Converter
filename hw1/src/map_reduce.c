@@ -380,7 +380,7 @@ int analysis(FILE* f, void* res, char* filename) {
 	int lnno = 0;
 	int bytesRead = 0;
 	while((c = fgetc(f)) != EOF) {
-        ana.ascii[c] = ana.ascii[c] + 1;
+        ana.ascii[(int)c] = ana.ascii[(int)c] + 1;
         if (c == 10) {
         	lnno = lnno + 1;
         	if (lnlen > ana.lnlen) {
