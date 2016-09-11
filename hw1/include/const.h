@@ -4,7 +4,7 @@
 #define CONST_H
 
 //Number of different values in the numbers files
-#define NVAL 32
+#define NVAL 100
 //The max number of files a directory will have.
 #define NFILES 32
 

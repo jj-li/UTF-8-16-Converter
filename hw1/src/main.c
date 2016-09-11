@@ -21,6 +21,7 @@ int cat(FILE* f, void* res, char* filename) {
 int main(int argc, char** argv) {
     int success = validateargs(argc,argv);
     if (success == -1){
+
     	return EXIT_FAILURE;
     }
     if (success == 0) {
@@ -47,7 +48,7 @@ int main(int argc, char** argv) {
     if (success == 3) {
     	int numFiles = nfiles(argv[3]);
     	num = map(argv[3], analysis_space, sizeof(struct Analysis), analysis);
-    	if (num == -1) {
+        if (num == -1) {
     		printf("%s\n", usage);
             return EXIT_FAILURE;
     	}
@@ -74,4 +75,5 @@ int main(int argc, char** argv) {
         Stats finalStat = stats_reduce(numFiles, stats_space);
     	stats_print(finalStat, 5);
     }
+    return EXIT_SUCCESS;
 }
