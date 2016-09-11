@@ -1,8 +1,6 @@
 //**DO NOT** CHANGE THE PROTOTYPES FOR THE FUNCTIONS GIVEN TO YOU. WE TEST EACH
 //FUNCTION INDEPENDENTLY WITH OUR OWN MAIN PROGRAM.
 #include "map_reduce.h"
-#include <string.h>
-#include <dirent.h>
 //Implement map_reduce.h functions here.
 
 int validateargs(int argc, char** argv){
