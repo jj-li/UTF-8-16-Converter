@@ -30,6 +30,10 @@ int validateargs(int argc, char** argv){
 	}
 	int exitNumber;
 	//Look for -v next
+	if (argc > 4){
+		printf("%s",statement);
+		return -1;
+	}
 	for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i],vFlag) == 0) {
 			i++;
@@ -67,6 +71,10 @@ int validateargs(int argc, char** argv){
 		}
 	}
 	//Finally check for just ana/stats
+	if (argc > 3){
+		printf("%s",statement);
+		return -1;
+	}
 	for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i],ana) == 0 || strcmp(argv[i],stats) == 0) {
 			if (strcmp(argv[i],ana) == 0) {
