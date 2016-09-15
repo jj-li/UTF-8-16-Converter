@@ -2,11 +2,8 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include "utfconverter.h"
 #include <getopt.h>
-#include <utfconverter.h>
 #include <string.h>
-#include "utfconverter.c"
 #include <stdbool.h>
 
 
@@ -37,16 +34,17 @@ typedef struct Glyph {
 	bool surrogate;
 } Glyph;
 
+static struct option long_options[] = {
+		{"help", no_argument, 0, 'h'},
+		{"h", no_argument, 0, 'h'},
+		{0, 0, 0, 0}
+};
+
 /** The given filename. */
 extern char* filename;
 
 /** The usage statement. */
-const char* USAGE = { 
-"Usage:  ./utfconverter FILENAME [OPTION]\n\t",
-"./utfconverter -h\t\t\tDisplays this usage statement.\n\t",
-"./utfconverter --help\t\t\tDisplays this usage statement.\n\t"
-"./utfconverter --UTF-16=ENDIANNESS\tEndianness to convert to.\n",
-}
+const char* USAGE = "Command line utility for converting files from UTF-16LE to UTF-16BE or vice versa.\n\nUsage:  ./utf [-h] -u OUT_ENC IN_FILE\n\n\tOption arguments:\n\t\t-h\t\t\tDisplays this usage.\n\n\tMandatory argument:\n\t\t-u OUT_ENC\t Sets the outpud encoding.\n\t\t\t\t\tValid values for OUT_ENC: 16LE, 16BE\n\n\tPositional Arguments:\n\t\tIN_FILE\t\tThe file to convert.";
 
 /** Which endianness to convert to. */
 extern endianness conversion;
@@ -61,7 +59,7 @@ extern endianness source;
  * @param glyph The pointer to the glyph struct to swap.
  * @return Returns a pointer to the glyph that has been swapped.
  */
-Glyph* swap_endianness P((Glyph*));
+Glyph* swap_endianness(Glyph* glyph);
 
 /**
  * Fills in a glyph with the given data in data[2], with the given endianness 
@@ -74,14 +72,14 @@ Glyph* swap_endianness P((Glyph*));
  * 			file.
  * @return Returns a pointer to the filled-in glyph.
  */
-Glyph* fill_glyph P((Glyph*, unsigned int, endianness, int*));
+Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd);
 
 /**
  * Writes the given glyph's contents to stdout.
  *
  * @param glyph The pointer to the glyph struct to write to stdout.
  */
-void write_glyph P((Glyph*));
+void write_glyph (Glyph* glyph);
 
 /**
  * Calls getopt() and parses arguments.
@@ -89,12 +87,12 @@ void write_glyph P((Glyph*));
  * @param argc The number of arguments.
  * @param argv The arguments as an array of string.
  */
-void parse_args P((int, char**));
+void parse_args(int argc, char** argv);
 
 /**
  * Prints the usage statement.
  */
-void print_help P((void));
+void print_help();
 
 /**
  * Closes file descriptors and frees list and possibly does other
@@ -104,4 +102,4 @@ void print_help P((void));
  * the macro value NO_FD (-1) to signify that we have no open file
  * to close.
  */
-void quit_converter P((int));
+void quit_converter(int);
