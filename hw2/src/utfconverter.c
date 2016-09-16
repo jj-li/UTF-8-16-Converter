@@ -11,17 +11,17 @@ int main(int argc, char** argv)
 	int fd = open("rsrc/utf16le.txt", O_RDONLY); 
 	unsigned int buf[2]; 
 	int rv = 0; 
-
+	memset(buf, 0, sizeof(buf));
 	Glyph* glyph = malloc(sizeof(Glyph)); 
 	
 	/*Handle BOM bytes for UTF16 specially. 
     Read our values into the first and second elements.*/
-	if((rv = read(fd, &buf['0'], 1)) == 1 && 
-			(rv = read(fd, &buf['1'], 1)) == 1){ 
-		if(buf['0'] == 0xff && buf['1'] == 0xfe){
+	if((rv = read(fd, &buf[0], 1)) == 1 && 
+			(rv = read(fd, &buf[1], 1)) == 1){ 
+		if(buf[0] == 0xff && buf[1] == 0xfe){
 			/*file is big endian*/
 			source = BIG; 
-		} else if(buf['0'] == 0xfe && buf['1'] == 0xff){
+		} else if(buf[0] == 0xfe && buf[1] == 0xff){
 			/*file is little endian*/
 			source = LITTLE;
 		} else {
@@ -45,7 +45,7 @@ int main(int argc, char** argv)
 	/* Now deal with the rest of the bytes.*/
 	while((rv = read(fd, &buf[0], 1)) == 1 &&  
 			(rv = read(fd, &buf[1], 1)) == 1);{
-		write_glyph(fill_glyph(glyph, 0, source, &fd));
+		write_glyph(fill_glyph(glyph, buf, source, &fd));//at here atm
 		void* memset_return = memset(glyph, 0, sizeof(Glyph)+1);
 	        /* Memory write failed, recover from it: */
 	        if(memset_return == NULL){
@@ -58,7 +58,8 @@ int main(int argc, char** argv)
 	        }
 	}
 
-
+	free(filename);
+	free(glyph);
 	quit_converter(NO_FD);
 	return 0;
 }
@@ -81,8 +82,8 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 	glyph->bytes[0] = data[0];
 	glyph->bytes[1] = data[1];
 
-	unsigned int bits = '0'; 
-	bits |= (data[FIRST] + (data[SECOND] << 8));
+	unsigned int bits = 0; 
+	bits = bits | (data[FIRST] + (data[SECOND] << 8));
 	/* Check high surrogate pair using its special value range.*/
 	if(bits > 0x000F && bits < 0xF8FF){ 
 		if(read(*fd, &data[SECOND], 1) == 1 && 
@@ -127,7 +128,8 @@ void parse_args(int argc, char** argv)
 			!= -1){
 		switch(c){ 
 			case 'u':
-				endian_convert = optarg;
+				endian_convert = argv[optind];
+				break;
 			default:
 				fprintf(stderr, "Unrecognized argument.\n");
 				quit_converter(NO_FD);
@@ -135,9 +137,10 @@ void parse_args(int argc, char** argv)
 		}
 
 	}
-
+	optind = optind + 1;
 	if(optind < argc){
-		strcpy(filename, argv[optind]);
+		filename = strdup(argv[optind]);
+		//strcpy(filename, argv[optind]);
 	} else {
 		fprintf(stderr, "Filename not given.\n");
 		print_help();
@@ -148,9 +151,9 @@ void parse_args(int argc, char** argv)
 		print_help();
 	}
 
-	if(strcmp(endian_convert, "LE")){ 
+	if(strcmp(endian_convert, "16LE")){ 
 		conversion = LITTLE;
-	} else if(strcmp(endian_convert, "BE")){
+	} else if(strcmp(endian_convert, "16BE")){
 		conversion = BIG;
 	} else {
 		quit_converter(NO_FD);

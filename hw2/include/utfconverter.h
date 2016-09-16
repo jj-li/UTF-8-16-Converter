@@ -44,7 +44,7 @@ static struct option long_options[] = {
 extern char* filename;
 
 /** The usage statement. */
-const char* USAGE = "Command line utility for converting files from UTF-16LE to UTF-16BE or vice versa.\n\nUsage:  ./utf [-h] -u OUT_ENC IN_FILE\n\n\tOption arguments:\n\t\t-h\t\t\tDisplays this usage.\n\n\tMandatory argument:\n\t\t-u OUT_ENC\t Sets the outpud encoding.\n\t\t\t\t\tValid values for OUT_ENC: 16LE, 16BE\n\n\tPositional Arguments:\n\t\tIN_FILE\t\tThe file to convert.";
+const char* USAGE = "Command line utility for converting files from UTF-16LE to UTF-16BE or vice versa.\n\nUsage:  ./utf [-h] -u OUT_ENC IN_FILE\n\nOption arguments:\n\t-h\tDisplays this usage.\n\nMandatory argument:\n\t-u OUT_ENC\t Sets the outpud encoding.\n\t\t\tValid values for OUT_ENC: 16LE, 16BE\n\nPositional Arguments:\n\tIN_FILE\tThe file to convert.";
 
 /** Which endianness to convert to. */
 extern endianness conversion;
@@ -102,4 +102,4 @@ void print_help();
  * the macro value NO_FD (-1) to signify that we have no open file
  * to close.
  */
-void quit_converter(int);
+void quit_converter(int fd);
