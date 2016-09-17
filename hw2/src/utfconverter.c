@@ -12,7 +12,7 @@ int main(int argc, char** argv)
 	unsigned int buf[2]; 
 	int rv = 0; 
 	memset(buf, 0, sizeof(buf));
-	Glyph* glyph = malloc(sizeof(Glyph)); 
+	Glyph* glyph = malloc(sizeof(Glyph)+1); 
 	
 	/*Handle BOM bytes for UTF16 specially. 
     Read our values into the first and second elements.*/
@@ -67,10 +67,12 @@ int main(int argc, char** argv)
 Glyph* swap_endianness(Glyph* glyph)
 {
 	/* Use XOR to be more efficient with how we swap values. */
-	glyph->bytes[0] = glyph->bytes[0] ^ glyph->bytes[1];
-	glyph->bytes[1] = glyph->bytes[1] ^ glyph->bytes[0];
+	unsigned int temp = glyph->bytes[0] ^ glyph->bytes[1];
+	glyph->bytes[0] = (glyph->bytes[0] & 0) ^ glyph->bytes[1];
+	glyph->bytes[1] = glyph->bytes[1] ^ temp;
 	if(glyph->surrogate){  /* If a surrogate pair, swap the next two bytes. */
-		glyph->bytes[2] = glyph->bytes[2] ^ glyph->bytes[3];
+		temp = glyph->bytes[2] ^ glyph->bytes[3];
+		glyph->bytes[2] = (glyph->bytes[2] & 0) ^ glyph->bytes[3];
 		glyph->bytes[3] = glyph->bytes[3] ^ glyph->bytes[2];
 	}
 	glyph->end = conversion;
@@ -85,23 +87,38 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 	unsigned int bits = 0; 
 	bits = bits | (data[0] + (data[1] << 8));
 	/* Check high surrogate pair using its special value range.*/
-	if(bits > 0x000F && bits < 0xF8FF){ 
-		if(read(*fd, &data[1], 1) == 1 && 
-			read(*fd, &(data[0]), 1) == 1){
-			//bits = 0; /* bits |= (bytes[FIRST] + (bytes[SECOND] << 8)) */
-			if(bits < 0xDAAF && bits > 0x00FF){ /* Check low surrogate pair.*/
-				glyph->surrogate = false; 
-			} else {
-				lseek(*fd, -OFFSET, SEEK_CUR); 
-				glyph->surrogate = true;
+	if(bits > 0x10000){ 
+			//bits = 0; bits |= (bytes[FIRST] + (bytes[SECOND] << 8)) 
+			if((glyph->bytes[0] << 8) >= 0xD800 && (glyph->bytes[0] << 8) <= 0xDBFF){ //Check low surrogate pair.
+				if ((glyph->bytes[1] << 8) >= 0xDC00 && (glyph->bytes[1] << 8) <= 0xDFFF)
+				{
+					lseek(*fd, -OFFSET, SEEK_CUR); 
+					glyph->surrogate = true;
+				}
+				else {
+					print_help();//LONE SURROGATE PAIR! ERROR!
+				}
 			}
-		}
-	}//utf16BE-special.txt
+			else {
+					print_help();//LONE SURROGATE PAIR! ERROR!
+			}
+	}
+	//utf16BE-special.txt
+	/*if(bits > 0x000F && bits < 0xF8FF){ 
+
+ 			//bits = '0'; bits |= (bytes[FIRST] + (bytes[SECOND] << 8))
+ 			if(bits > 0xDAAF && bits < 0x00FF){ //Check low surrogate pair.
+ 				glyph->surrogate = false; 
+ 			} else {
+ 				lseek(*fd, -OFFSET, SEEK_CUR); 
+ 				glyph->surrogate = true;
+ 			}
+	}*/
+
 	if(!glyph->surrogate){
 		glyph->bytes[4] = glyph->bytes[4] | 0;
 		glyph->bytes[3] = glyph->bytes[4];
 	} else{
-		//glyph->bytes[THIRD] == data[FIRST];
 		glyph->bytes[3] = data[0];
 		glyph--->bytes[4] = data[1];
 	}
@@ -117,6 +134,14 @@ void write_glyph(Glyph* glyph)
 	if(glyph->surrogate){
 		write(STDOUT_FILENO, glyph->bytes, SURROGATE_SIZE);
 	} else {
+		/*unsigned int bits = 0; 
+		if (conversion == BIG) {
+			bits = bits | (glyph->bytes[0] + (glyph->bytes[1] << 8));
+		}
+		else {
+			bits = bits | ((glyph->bytes[0] << 8) + glyph->bytes[1]);
+		}
+		*/
 		write(STDOUT_FILENO, glyph->bytes, NON_SURROGATE_SIZE);
 	}
 }
