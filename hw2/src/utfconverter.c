@@ -40,6 +40,18 @@ int main(int argc, char** argv)
 			/* Now make the request again. */
 			memset(glyph, 0, sizeof(Glyph)+1);
 		}
+		if (conversion == LITTLE) {
+			glyph->surrogate = true;
+			glyph->bytes[0] = 0xff;
+			glyph->bytes[1] = 0xfe;
+			write_glyph(glyph);
+		}
+		else {
+			glyph->surrogate = true;
+			glyph->bytes[0] = 0xfe;
+			glyph->bytes[1] = 0xff;
+			write_glyph(glyph);
+		}
 	}
 
 	/* Now deal with the rest of the bytes.*/
@@ -58,7 +70,6 @@ int main(int argc, char** argv)
 	        }
 	}
 
-	free(filename);
 	free(glyph);
 	quit_converter(NO_FD);
 	return 0;
@@ -70,11 +81,11 @@ Glyph* swap_endianness(Glyph* glyph)
 	unsigned int temp = glyph->bytes[0] ^ glyph->bytes[1];
 	glyph->bytes[0] = (glyph->bytes[0] & 0) ^ glyph->bytes[1];
 	glyph->bytes[1] = glyph->bytes[1] ^ temp;
-	if(glyph->surrogate){  /* If a surrogate pair, swap the next two bytes. */
+	/*if(glyph->surrogate){  //If a surrogate pair, swap the next two bytes.
 		temp = glyph->bytes[2] ^ glyph->bytes[3];
 		glyph->bytes[2] = (glyph->bytes[2] & 0) ^ glyph->bytes[3];
 		glyph->bytes[3] = glyph->bytes[3] ^ glyph->bytes[2];
-	}
+	}*/
 	glyph->end = conversion;
 	return glyph;
 }
@@ -85,9 +96,14 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 	glyph->bytes[1] = data[1];
 
 	unsigned int bits = 0; 
-	bits = bits | (data[0] + (data[1] << 8));
+	if (end == BIG) {
+		bits = bits | (data[0] + (data[1] << 8));
+	}
+	else {
+		bits = bits | ((data[0] << 8) + data[1]);
+	}
 	/* Check high surrogate pair using its special value range.*/
-	if(bits > 0x10000){ 
+	/*if(bits > 0x10000){ 
 			//bits = 0; bits |= (bytes[FIRST] + (bytes[SECOND] << 8)) 
 			if((glyph->bytes[0] << 8) >= 0xD800 && (glyph->bytes[0] << 8) <= 0xDBFF){ //Check low surrogate pair.
 				if ((glyph->bytes[1] << 8) >= 0xDC00 && (glyph->bytes[1] << 8) <= 0xDFFF)
@@ -102,25 +118,20 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 			else {
 					print_help();//LONE SURROGATE PAIR! ERROR!
 			}
-	}
+	}*/
 	//utf16BE-special.txt
-	/*if(bits > 0x000F && bits < 0xF8FF){ 
-
+	if(bits > 0x000F && bits < 0xF8FF){ 
  			//bits = '0'; bits |= (bytes[FIRST] + (bytes[SECOND] << 8))
  			if(bits > 0xDAAF && bits < 0x00FF){ //Check low surrogate pair.
  				glyph->surrogate = false; 
  			} else {
- 				lseek(*fd, -OFFSET, SEEK_CUR); 
+ 				lseek(*fd, 0, SEEK_CUR); 
  				glyph->surrogate = true;
  			}
-	}*/
+ 	}
 
 	if(!glyph->surrogate){
-		glyph->bytes[4] = glyph->bytes[4] | 0;
-		glyph->bytes[3] = glyph->bytes[4];
-	} else{
-		glyph->bytes[3] = data[0];
-		glyph--->bytes[4] = data[1];
+		glyph->bytes[1] = glyph->bytes[1] & 0;
 	}
 	glyph->end = end;
 	if (conversion != end) {
@@ -199,6 +210,7 @@ void print_help() {
 
 void quit_converter(int fd)
 {
+	free(filename);
 	close(STDERR_FILENO);
 	close(STDIN_FILENO);
 	close(STDOUT_FILENO);
