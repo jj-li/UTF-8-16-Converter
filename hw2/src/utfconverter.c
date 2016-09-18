@@ -6,11 +6,19 @@ endianness conversion;
 int sparky;
 int main(int argc, char** argv)
 {
+	/*
+		Potential ERRORS?
+		CORRUPTED FILE
+		FILE DOES NOT EXIST? GOTTA LET USER KNOW?
+		need to work on the asm function
+	*/
 	int fd;
 	int rv;
 	Glyph* glyph;
 	unsigned int buf[2]; 
 
+	/*scp -r -P 24 ../hw2 jijli@sparky.ic.stonybrook.edu:
+	*/
 	/*After calling parse_args(), filename and conversion should be set. */
 	parse_args(argc, argv);
 
@@ -181,18 +189,65 @@ void write_glyph(Glyph* glyph)
 void parse_args(int argc, char** argv)
 {
 	int option_index, c;
-	char* endian_convert = NULL;
+	char* endian_convert;
+	static struct option long_options[] = {
+		{"help", no_argument, 0, 'h'},
+		{"h", no_argument, 0, 'h'},
+		{"UTF", required_argument, 0, 'u'},
+		{0, 0, 0, 0}
+	};
+	endian_convert = NULL;
 
 	/* If getopt() returns with a valid (its working correctly) 
 	 * return code, then process the args! */
-	if((c = getopt_long(argc, argv, "hu", long_options, &option_index)) 
-			!= -1){
+	while(1)
+	{
+		if ((c = getopt_long(argc, argv, "h", long_options, &option_index)) == -1) {
+			break;
+		}
 		switch(c){ 
 			case 'h':
 				print_help();
 				break;
+		}
+
+	}
+	/*
+		May have to separate getting just long and getting just short.
+	*/
+	optind = 1;
+	while(1)
+	{
+		if((c = getopt_long(argc, argv, "u", long_options, &option_index)) == -1){
+			break;
+		}
+		switch(c){ 
 			case 'u':
-				endian_convert = argv[optind];
+				if(optind >= argc){
+					fprintf(stderr, "Filename not given.\n");
+					print_help();
+				} 
+				else {
+					if((strcmp(argv[optind], "16LE") == 0) || (strcmp(argv[optind], "16BE") == 0)){ 
+						endian_convert = argv[optind];
+						optind = optind + 1;
+						if(optind < argc){
+							filename = strdup(argv[optind]);
+						} else {
+							fprintf(stderr, "Filename not given.\n");
+							print_help();
+						}
+					}
+					else{
+						endian_convert = optarg;
+						if(optind > 1){
+							filename = strdup(argv[optind]);
+						} else {
+							fprintf(stderr, "Filename not given.\n");
+							print_help();
+						}
+					}
+				}
 				break;
 			default:
 				fprintf(stderr, "Unrecognized argument.\n");
@@ -201,14 +256,7 @@ void parse_args(int argc, char** argv)
 		}
 
 	}
-	optind = optind + 1;
-	if(optind < argc){
-		filename = strdup(argv[optind]);
-		/*strcpy(filename, argv[optind]);*/
-	} else {
-		fprintf(stderr, "Filename not given.\n");
-		print_help();
-	}
+	
 
 	if(endian_convert == NULL){
 		fprintf(stderr, "Converson mode not given.\n");
@@ -225,7 +273,17 @@ void parse_args(int argc, char** argv)
 }
 
 void print_help() {
-	printf("%s", USAGE); 
+	int i;
+	int elements;
+	elements = 10;
+	for (i = 0; i < elements; i = i+1) {
+		if (i < 9) {
+			printf("%s\n", USAGE[i]);
+		}
+		else {
+			printf("%s", USAGE[i]);
+		}
+	}
 	quit_converter(NO_FD);
 }
 

@@ -34,17 +34,20 @@ typedef struct Glyph {
 	bool surrogate;
 } Glyph;
 
-static struct option long_options[] = {
-		{"help", no_argument, 0, 'h'},
-		{"h", no_argument, 0, 'h'},
-		{0, 0, 0, 0}
-};
-
 /** The given filename. */
 extern char* filename;
 
 /** The usage statement. */
-const char* USAGE = "Command line utility for converting files from UTF-16LE to UTF-16BE or vice versa.\n\nUsage:  ./utf [-h] -u OUT_ENC IN_FILE\n\nOption arguments:\n\t-h\tDisplays this usage.\n\nMandatory argument:\n\t-u OUT_ENC\t Sets the outpud encoding.\n\t\t\tValid values for OUT_ENC: 16LE, 16BE\n\nPositional Arguments:\n\tIN_FILE\tThe file to convert.";
+const char* USAGE[10] = {"Command line utility for converting files from UTF-16LE to UTF-16BE or viceversa.\n",
+	"Usage: ./utf [-h|--help] -u OUT_ENC | --UTF=OUT_ENC IN_FILE\n",
+	"  Option arguments:",
+	"    -h, --help\t    Displays this usage.\n",
+	"  Mandatory argument:",
+	"    -u OUT_ENC, --UTF=OUT_ENC\tSets the output encoding.",
+	"\t\t\t\tValid values for OUT_ENC: 16LE, 16BE\n",
+	"  Positional Arguments:",
+	"     IN_FILE\tThe file to convert.",
+	"\0"};
 
 /** Which endianness to convert to. */
 extern endianness conversion;
