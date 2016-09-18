@@ -200,28 +200,11 @@ void parse_args(int argc, char** argv)
 
 	/* If getopt() returns with a valid (its working correctly) 
 	 * return code, then process the args! */
-	while(1)
-	{
-		if ((c = getopt_long(argc, argv, "h", long_options, &option_index)) == -1) {
-			break;
-		}
+	while((c = getopt_long(argc, argv, "hu:", long_options, &option_index)) != -1){
 		switch(c){ 
 			case 'h':
 				print_help();
 				break;
-		}
-
-	}
-	/*
-		May have to separate getting just long and getting just short.
-	*/
-	optind = 1;
-	while(1)
-	{
-		if((c = getopt_long(argc, argv, "u", long_options, &option_index)) == -1){
-			break;
-		}
-		switch(c){ 
 			case 'u':
 				if(optind >= argc){
 					fprintf(stderr, "Filename not given.\n");
