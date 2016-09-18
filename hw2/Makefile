@@ -1,9 +1,9 @@
 CC = gcc
-SRC = $(wildcard src/*.c)
-INCLUDE = $(wildcard include/)
+SRC = ./src/utfconverter.c
+INCLUDE = ./include/
 BIN = utfconverter
-CFLAGS = -g -Wall -Werror -pedantic -Wextra -g
-REQ = $(SRC) $(wildcard include/*.h)
+CFLAGS = -g -Wall -Werror -pedantic -Wextra
+REQ = $(SRC) include/*.h
 
 all: $(BIN)
 
