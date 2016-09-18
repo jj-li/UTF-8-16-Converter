@@ -5,6 +5,8 @@
 #include <getopt.h>
 #include <string.h>
 #include <stdbool.h>
+#include <sys/utsname.h>
+#include <sys/stat.h>
 
 
 #define MAX_BYTES 2
@@ -38,10 +40,11 @@ typedef struct Glyph {
 extern char* filename;
 
 /** The usage statement. */
-const char* USAGE[10] = {"Command line utility for converting files from UTF-16LE to UTF-16BE or viceversa.\n",
-	"Usage: ./utf [-h|--help] -u OUT_ENC | --UTF=OUT_ENC IN_FILE\n",
+const char* USAGE[11] = {"Command line utility for converting files from UTF-16LE to UTF-16BE or viceversa.\n",
+	"Usage: ./utf [-h|--help] [-v|-vv] -u OUT_ENC | --UTF=OUT_ENC IN_FILE\n",
 	"  Option arguments:",
-	"    -h, --help\t    Displays this usage.\n",
+	"    -h, --help\t    Displays this usage.",
+	"    -v, -vv\t    Toggles the verbosity of the program to level 1 or 2.\n",
 	"  Mandatory argument:",
 	"    -u OUT_ENC, --UTF=OUT_ENC\tSets the output encoding.",
 	"\t\t\t\tValid values for OUT_ENC: 16LE, 16BE\n",

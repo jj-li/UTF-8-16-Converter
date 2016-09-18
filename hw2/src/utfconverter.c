@@ -4,6 +4,7 @@ char* filename;
 endianness source;
 endianness conversion;
 int sparky;
+int verbosity;
 int main(int argc, char** argv)
 {
 	/*
@@ -15,7 +16,10 @@ int main(int argc, char** argv)
 	int fd;
 	int rv;
 	Glyph* glyph;
-	unsigned int buf[2]; 
+	unsigned int buf[2];
+	char* hostname;
+	struct utsname* systemName; 
+	struct stat* fileData;
 
 	/*scp -r -P 24 ../hw2 jijli@sparky.ic.stonybrook.edu:
 	*/
@@ -27,6 +31,7 @@ int main(int argc, char** argv)
 	memset(buf, 0, sizeof(buf));
 	glyph = malloc(sizeof(Glyph)+1); 
 	sparky = 0;
+	verbosity = 0;
 	/*Handle BOM bytes for UTF16 specially. 
     Read our values into the first and second elements.*/
 	if((rv = read(fd, &buf[0], 1)) == 1 && 
@@ -47,7 +52,7 @@ int main(int argc, char** argv)
 			sparky = 1;
 		} else {
 			/*file has no BOM*/
-			free(&glyph->bytes); 
+			free(glyph); 
 			fprintf(stderr, "File has no BOM.\n");
 			quit_converter(NO_FD); 
 		}
@@ -91,6 +96,48 @@ int main(int argc, char** argv)
 		        /* Now make the request again. */
 		        memset(glyph, 0, sizeof(Glyph)+1);
 	        }
+	}
+
+	if (verbosity == 1) {
+		fileData = malloc(sizeof(struct stat)+1);
+		if (stat(filename, fileData) == 0) {
+			printf("Input file size: %ld byte\n", fileData->st_size);
+		}
+		else {
+			free(fileData);
+			/*some error*/
+		}
+		free(fileData);
+		if (source == BIG) {
+			printf("Input file encoding: UTF-16BE\n");
+		}
+		else {
+			printf("Input file encoding: UTF-16LE\n");
+		}
+		if (conversion == BIG) {
+			printf("Output encoding: UTF-16BE\n");
+		}
+		else {
+			printf("Output encoding: UTF-16LE\n");
+		}
+		hostname = malloc(sizeof(char)+50);
+		if (gethostname(hostname, sizeof(hostname)+50) == 0) {
+			printf("Hostmachine: %s\n", hostname);
+		}
+		else {
+			free(hostname);
+			/*some error*/
+		}
+		free(hostname);
+		systemName = malloc(sizeof(struct utsname)+1);
+		if (uname(systemName) == 0) {
+			printf("Operating System: %s\n", systemName->sysname);
+		} 
+		else {
+			free(systemName);
+			/*some error*/
+		}
+		free(systemName);
 	}
 
 	free(glyph);
@@ -200,7 +247,7 @@ void parse_args(int argc, char** argv)
 
 	/* If getopt() returns with a valid (its working correctly) 
 	 * return code, then process the args! */
-	while((c = getopt_long(argc, argv, "hu:", long_options, &option_index)) != -1){
+	while((c = getopt_long(argc, argv, "vhu", long_options, &option_index)) != -1){
 		switch(c){ 
 			case 'h':
 				print_help();
@@ -232,6 +279,11 @@ void parse_args(int argc, char** argv)
 					}
 				}
 				break;
+			case 'v':
+				if (verbosity < 2) {
+					verbosity = verbosity + 1;
+				}
+				break;
 			default:
 				fprintf(stderr, "Unrecognized argument.\n");
 				quit_converter(NO_FD);
@@ -258,7 +310,7 @@ void parse_args(int argc, char** argv)
 void print_help() {
 	int i;
 	int elements;
-	elements = 10;
+	elements = 11;
 	for (i = 0; i < elements; i = i+1) {
 		if (i < 9) {
 			printf("%s\n", USAGE[i]);
