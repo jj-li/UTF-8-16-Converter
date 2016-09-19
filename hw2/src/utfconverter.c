@@ -309,6 +309,10 @@ void parse_args(int argc, char** argv)
 							print_help();
 						}
 					}
+					else if((strcmp(optarg, "") == 0)){ 
+						fprintf(stderr, "Converson mode not given.\n");
+						print_help();
+					}
 					else{
 						endian_convert = optarg;
 						if(optind > 1){
