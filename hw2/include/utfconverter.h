@@ -7,11 +7,13 @@
 #include <stdbool.h>
 #include <sys/utsname.h>
 #include <sys/stat.h>
+#include <stdlib.h>
+#include <time.h>
 
 
-#define MAX_BYTES 2
-#define SURROGATE_SIZE 2
-#define NON_SURROGATE_SIZE 1
+#define MAX_BYTES 4
+#define SURROGATE_SIZE 4
+#define NON_SURROGATE_SIZE 2
 #define NO_FD -1
 #define OFFSET 4
 

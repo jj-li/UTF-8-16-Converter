@@ -5,6 +5,9 @@ endianness source;
 endianness conversion;
 int sparky;
 int verbosity;
+int totalGlyphs;
+int totalSurrogates;
+int totalAsciis;
 int main(int argc, char** argv)
 {
 	/*
@@ -20,10 +23,11 @@ int main(int argc, char** argv)
 	char* hostname;
 	struct utsname* systemName; 
 	struct stat* fileData;
-
+	char* filePath;
 	/*scp -r -P 24 ../hw2 jijli@sparky.ic.stonybrook.edu:
 	*/
 	/*After calling parse_args(), filename and conversion should be set. */
+	verbosity = 0;
 	parse_args(argc, argv);
 
 	fd = open(filename, O_RDONLY); 
@@ -31,7 +35,9 @@ int main(int argc, char** argv)
 	memset(buf, 0, sizeof(buf));
 	glyph = malloc(sizeof(Glyph)+1); 
 	sparky = 0;
-	verbosity = 0;
+	totalGlyphs = 0;
+	totalSurrogates = 0;
+	totalAsciis = 0;
 	/*Handle BOM bytes for UTF16 specially. 
     Read our values into the first and second elements.*/
 	if((rv = read(fd, &buf[0], 1)) == 1 && 
@@ -67,13 +73,13 @@ int main(int argc, char** argv)
 			memset(glyph, 0, sizeof(Glyph)+1);
 		}
 		if (conversion == LITTLE) {
-			glyph->surrogate = true;
+			glyph->surrogate = false;
 			glyph->bytes[0] = 0xff;
 			glyph->bytes[1] = 0xfe;
 			write_glyph(glyph);
 		}
 		else {
-			glyph->surrogate = true;
+			glyph->surrogate = false;
 			glyph->bytes[0] = 0xfe;
 			glyph->bytes[1] = 0xff;
 			write_glyph(glyph);
@@ -86,6 +92,7 @@ int main(int argc, char** argv)
 		void* memset_return;
 
 		write_glyph(fill_glyph(glyph, buf, source, &fd));
+		totalGlyphs = totalGlyphs + 1;
 		memset_return = memset(glyph, 0, sizeof(Glyph)+1);
 	        /* Memory write failed, recover from it: */
 	        if(memset_return == NULL){
@@ -97,17 +104,25 @@ int main(int argc, char** argv)
 		        memset(glyph, 0, sizeof(Glyph)+1);
 	        }
 	}
-
-	if (verbosity == 1) {
+	if (verbosity >= 1) {
 		fileData = malloc(sizeof(struct stat)+1);
 		if (stat(filename, fileData) == 0) {
-			printf("Input file size: %ld byte\n", fileData->st_size);
+			printf("Input file size: %ld bytes\n", fileData->st_size);
 		}
 		else {
 			free(fileData);
 			/*some error*/
 		}
 		free(fileData);
+		filePath = realpath(filename, NULL);
+		if (filePath != NULL) {
+			printf("Input file path: %s\n", filePath);
+		}
+		else {
+			free(filePath);
+			/*some error*/
+		}
+		free(filePath);
 		if (source == BIG) {
 			printf("Input file encoding: UTF-16BE\n");
 		}
@@ -138,6 +153,28 @@ int main(int argc, char** argv)
 			/*some error*/
 		}
 		free(systemName);
+		if (verbosity == 2) {
+			int surrogatePercentage;
+			int asciiPercentage;
+
+			surrogatePercentage = (totalSurrogates*1.0)/(totalGlyphs*1.0) * 1000;
+			asciiPercentage = (totalAsciis*1.0)/(totalGlyphs*1.0) * 1000;
+			if (asciiPercentage % 10 >= 5) {
+				printf("ASCII: %d%%\n", (asciiPercentage/10 + 1));
+			}
+			else {
+				printf("ASCII: %d%%\n", (asciiPercentage/10));
+
+			}
+			if (surrogatePercentage % 10 >= 5) {
+				printf("Surrogates: %d%%\n", (int)(surrogatePercentage/10 + 1));
+			}
+			else {
+				printf("Surrogates: %d%%\n", (int)(surrogatePercentage/10));
+
+			}
+			printf("Glyphs: %d\n", totalGlyphs);
+		}
 	}
 
 	free(glyph);
@@ -171,43 +208,46 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 	glyph->bytes[0] = data[0];
 	glyph->bytes[1] = data[1];
 
-	
+	/* bits presents the codepoint */
 	bits = 0; 
 	if (end == BIG) {
-		bits = bits | (data[0] + (data[1] << 8));
-	}
-	else {
 		bits = bits | ((data[0] << 8) + data[1]);
 	}
+	else {
+		bits = bits | (data[0] + (data[1] << 8));
+	}
+	if (bits <= 0x007F) {
+		totalAsciis = totalAsciis + 1;
+	}
 	/* Check high surrogate pair using its special value range.*/
-	/*if(bits > 0x10000){ 
-			//bits = 0; bits |= (bytes[FIRST] + (bytes[SECOND] << 8)) 
-			if((glyph->bytes[0] << 8) >= 0xD800 && (glyph->bytes[0] << 8) <= 0xDBFF){ //Check low surrogate pair.
-				if ((glyph->bytes[1] << 8) >= 0xDC00 && (glyph->bytes[1] << 8) <= 0xDFFF)
-				{
-					lseek(*fd, -OFFSET, SEEK_CUR); 
-					glyph->surrogate = true;
-				}
-				else {
-					print_help();//LONE SURROGATE PAIR! ERROR!
-				}
+	if(bits >= 0xD800 && bits <= 0xDBFF){ 
+		if(read(*fd, &(data[1]), 1) == 1 && 
+			read(*fd, &(data[0]), 1) == 1){
+			/* Now remake the bit using the second set of bytes */
+			if (end == BIG) {
+				bits = bits | ((data[0] << 8) + data[1]);
 			}
 			else {
-					print_help();//LONE SURROGATE PAIR! ERROR!
-			}
-	}*/
-	if(bits > 0x000F && bits < 0xF8FF){ 
- 			/*bits = '0'; bits |= (bytes[FIRST] + (bytes[SECOND] << 8))*/
- 			if(bits > 0xDAAF && bits < 0x00FF){ /*Check low surrogate pair.*/
- 				glyph->surrogate = false; 
- 			} else {
- 				lseek(*fd, 0, SEEK_CUR); 
+				bits = bits | (data[0] + (data[1] << 8));
+			} 
+			if(bits >= 0xDC00 && bits <= 0xDFFF){ /*Check low surrogate pair.*/
+ 				lseek(*fd, -2, SEEK_CUR); 
  				glyph->surrogate = true;
+ 			} else {
+ 				glyph->surrogate = false; 
  			}
+ 		}
+ 	}
+ 	else {
+ 		glyph->surrogate = false;
  	}
 
 	if(!glyph->surrogate){
-		glyph->bytes[1] = glyph->bytes[1] & 0;
+		glyph->bytes[2] = 0;
+		glyph->bytes[3] = 0;
+	} else {
+		glyph->bytes[2] = data[0];
+		glyph->bytes[3] = data[1];
 	}
 	glyph->end = end;
 	if (conversion != end) {
@@ -220,6 +260,7 @@ void write_glyph(Glyph* glyph)
 {
 	if(glyph->surrogate){
 		write(STDOUT_FILENO, glyph->bytes, SURROGATE_SIZE);
+		totalSurrogates = totalSurrogates + 1;
 	} else {
 		/*unsigned int bits = 0; 
 		if (conversion == BIG) {
