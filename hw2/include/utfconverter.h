@@ -42,8 +42,8 @@ typedef struct Glyph {
 extern char* filename;
 
 /** The usage statement. */
-const char* USAGE[11] = {"Command line utility for converting files from UTF-16LE to UTF-16BE or viceversa.\n",
-	"Usage: ./utf [-h|--help] [-v|-vv] -u OUT_ENC | --UTF=OUT_ENC IN_FILE\n",
+const char* USAGE[12] = {"Command line utility for converting files from UTF-16LE to UTF-16BE or viceversa.\n",
+	"Usage: ./utf [-h|--help] [-v|-vv] -u OUT_ENC | --UTF=OUT_ENC IN_FILE [OUT_FILE]\n",
 	"  Option arguments:",
 	"    -h, --help\t    Displays this usage.",
 	"    -v, -vv\t    Toggles the verbosity of the program to level 1 or 2.\n",
@@ -51,7 +51,8 @@ const char* USAGE[11] = {"Command line utility for converting files from UTF-16L
 	"    -u OUT_ENC, --UTF=OUT_ENC\tSets the output encoding.",
 	"\t\t\t\tValid values for OUT_ENC: 16LE, 16BE\n",
 	"  Positional Arguments:",
-	"     IN_FILE\tThe file to convert.",
+	"    IN_FILE\tThe file to convert.",
+	"    [OUT_FILE] Output file name. If not present, defaults to stdout.",
 	"\0"};
 
 /** Which endianness to convert to. */

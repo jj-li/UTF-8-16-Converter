@@ -70,6 +70,7 @@ int main(int argc, char** argv)
 			    "movl $.LC0, %edi\n\t"
 			    "movl $0, %eax");*/
 			/* Now make the request again. */
+			return EXIT_FAILURE;
 			memset(glyph, 0, sizeof(Glyph)+1);
 		}
 		if (conversion == LITTLE) {
@@ -101,6 +102,7 @@ int main(int argc, char** argv)
 		            "movl $.LC0, %edi\n\t"
 		            "movl $0, %eax");*/
 		        /* Now make the request again. */
+		        return EXIT_FAILURE;
 		        memset(glyph, 0, sizeof(Glyph)+1);
 	        }
 	}
@@ -281,7 +283,7 @@ void parse_args(int argc, char** argv)
 	static struct option long_options[] = {
 		{"help", no_argument, 0, 'h'},
 		{"h", no_argument, 0, 'h'},
-		{"UTF", required_argument, 0, 'u'},
+		{"UTF", required_argument, 0, 'z'},
 		{0, 0, 0, 0}
 	};
 	endian_convert = NULL;
@@ -294,6 +296,21 @@ void parse_args(int argc, char** argv)
 				print_help();
 				break;
 			case 'u':
+				optind = optind + 1;
+				if (optind >= argc) {
+					fprintf(stderr, "Converson mode not given.\n");
+					print_help();
+				}
+				optind = optind - 1;
+				endian_convert = argv[optind];
+				optind = optind + 1;
+				if(optind < argc){
+				filename = strdup(argv[optind]);
+				} else {
+					fprintf(stderr, "Filename not given.\n");
+					print_help();
+				}
+				/*
 				if(optind >= argc){
 					fprintf(stderr, "Filename not given.\n");
 					print_help();
@@ -322,6 +339,19 @@ void parse_args(int argc, char** argv)
 							print_help();
 						}
 					}
+				}*/
+				break;
+			case 'z':
+				if((strcmp(optarg, "") == 0)){ 
+					fprintf(stderr, "Converson mode not given.\n");
+					print_help();
+				}
+				endian_convert = optarg;
+				if(optind > 1){
+					filename = strdup(argv[optind]);
+				} else {
+					fprintf(stderr, "Filename not given.\n");
+					print_help();
 				}
 				break;
 			case 'v':
@@ -355,9 +385,9 @@ void parse_args(int argc, char** argv)
 void print_help() {
 	int i;
 	int elements;
-	elements = 11;
+	elements = 12;
 	for (i = 0; i < elements; i = i+1) {
-		if (i < 9) {
+		if (i < 11) {
 			printf("%s\n", USAGE[i]);
 		}
 		else {
