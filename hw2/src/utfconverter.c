@@ -290,22 +290,19 @@ void parse_args(int argc, char** argv)
 
 	/* If getopt() returns with a valid (its working correctly) 
 	 * return code, then process the args! */
-	while((c = getopt_long(argc, argv, "vhu", long_options, &option_index)) != -1){
+	while((c = getopt_long(argc, argv, "vhu:", long_options, &option_index)) != -1){
 		switch(c){ 
 			case 'h':
 				print_help();
 				break;
 			case 'u':
-				optind = optind + 1;
-				if (optind >= argc) {
-					fprintf(stderr, "Converson mode not given.\n");
+				if ((strcmp(optarg, "16LE") != 0) && (strcmp(optarg, "16BE") != 0)) {
+					fprintf(stderr, "Invalid conversion mode.\n");
 					print_help();
 				}
-				optind = optind - 1;
-				endian_convert = argv[optind];
-				optind = optind + 1;
+				endian_convert = optarg;
 				if(optind < argc){
-				filename = strdup(argv[optind]);
+					filename = strdup(argv[optind]);
 				} else {
 					fprintf(stderr, "Filename not given.\n");
 					print_help();
@@ -367,7 +364,6 @@ void parse_args(int argc, char** argv)
 
 	}
 	
-
 	if(endian_convert == NULL){
 		fprintf(stderr, "Converson mode not given.\n");
 		print_help();
