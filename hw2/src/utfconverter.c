@@ -8,6 +8,8 @@ int verbosity;
 int totalGlyphs;
 int totalSurrogates;
 int totalAsciis;
+int filenamePos;
+int noMoreCheckingNextFlag;
 int main(int argc, char** argv)
 {
 	/*
@@ -29,6 +31,8 @@ int main(int argc, char** argv)
 	/*After calling parse_args(), filename and conversion should be set. */
 	verbosity = 0;
 	filename = malloc(1);
+	filenamePos = 0;
+	noMoreCheckingNextFlag = 0;
 	parse_args(argc, argv);
 
 	fd = open(filename, O_RDONLY);
@@ -322,7 +326,8 @@ void parse_args(int argc, char** argv)
 				endian_convert = optarg;
 				if(optind < argc){
 					free(filename);
-					filename = strdup(argv[optind]);
+					filenamePos = optind;
+					/*filename = strdup(argv[optind]);*/
 				} else {
 					fprintf(stderr, "Filename not given.\n");
 					print_help();
@@ -336,7 +341,8 @@ void parse_args(int argc, char** argv)
 				endian_convert = optarg;
 				if(optind > 1){
 					free(filename);
-					filename = strdup(argv[optind]);
+					filenamePos = optind;
+					/*filename = strdup(argv[optind]);*/
 				} else {
 					fprintf(stderr, "Filename not given.\n");
 					print_help();
@@ -346,6 +352,20 @@ void parse_args(int argc, char** argv)
 				if (verbosity < 2) {
 					verbosity = verbosity + 1;
 				}
+				if (filenamePos > 0 && noMoreCheckingNextFlag == 0) {
+					if (optind >= argc) {
+						fprintf(stderr, "Filename not given.\n");
+						print_help();
+					}
+					if (strcmp(argv[optind], "-v")) {
+						filenamePos = optind;
+					}
+					if ((optind+1) < argc) {
+						if (strcmp(argv[(optind+1)], "-v")) {
+							noMoreCheckingNextFlag = 1;
+						}
+					}					
+				}
 				break;
 			default:
 				fprintf(stderr, "Unrecognized argument.\n");
@@ -354,7 +374,7 @@ void parse_args(int argc, char** argv)
 		}
 
 	}
-	
+	filename = strdup(argv[filenamePos]);
 	if(endian_convert == NULL){
 		fprintf(stderr, "Converson mode not given.\n");
 		print_help();
