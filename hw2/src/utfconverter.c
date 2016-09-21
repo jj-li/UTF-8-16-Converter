@@ -1,6 +1,7 @@
 #include "utfconverter.h"
 
 char* filename;
+char* outputName;
 endianness source;
 endianness conversion;
 int sparky;
@@ -25,13 +26,18 @@ clock_t writeRealStart;
 clock_t writeRealEnd;
 struct tms* writeCpuStart;
 struct tms* writeCpuEnd;
+double convertRealTime;
+double convertUserTime;
+double convertSysTime;
+clock_t convertRealStart;
+clock_t convertRealEnd;
+struct tms* convertCpuStart;
+struct tms* convertCpuEnd;
 int main(int argc, char** argv)
 {
 	/*
 		Potential ERRORS?
-		CORRUPTED FILE
-		FILE DOES NOT EXIST? GOTTA LET USER KNOW?
-		need to work on the asm function
+		-v everywhere still gotta work
 	*/
 	int fd;
 	int rv;
@@ -46,13 +52,14 @@ int main(int argc, char** argv)
 	/*After calling parse_args(), filename and conversion should be set. */
 	verbosity = 0;
 	filename = malloc(1);
+	outputName = malloc(1);
 	filenamePos = 0;
 	noMoreCheckingNextFlag = 0;
 	parse_args(argc, argv);
 
 	fd = open(filename, O_RDONLY);
 	if (fd == -1) {
-		printf("File does not exist,\n");
+		printf("File does not exist.\n");
 		return EXIT_FAILURE;
 	}
 	rv = 0; 
@@ -72,6 +79,11 @@ int main(int argc, char** argv)
 	writeSysTime = 0;
 	writeCpuStart = malloc(sizeof(struct tms)+1);
 	writeCpuEnd = malloc(sizeof(struct tms)+1);
+	convertRealTime = 0;
+	convertUserTime = 0;
+	convertSysTime = 0;
+	convertCpuStart = malloc(sizeof(struct tms)+1);
+	convertCpuEnd = malloc(sizeof(struct tms)+1);
 	tps = sysconf(_SC_CLK_TCK); 
 	/*Handle BOM bytes for UTF16 specially. 
     Read our values into the first and second elements.*/
@@ -101,6 +113,10 @@ int main(int argc, char** argv)
 			free(glyph); 
 			free(readCpuStart);
 			free(readCpuEnd);
+			free(writeCpuStart);
+			free(writeCpuEnd);
+			free(convertCpuStart);
+			free(convertCpuEnd);
 			fprintf(stderr, "File has no BOM.\n");
 			quit_converter(NO_FD); 
 		}
@@ -116,6 +132,8 @@ int main(int argc, char** argv)
 			free(readCpuEnd);
 			free(writeCpuStart);
 			free(writeCpuEnd);
+			free(convertCpuStart);
+			free(convertCpuEnd);
 			return EXIT_FAILURE;
 			memset(glyph, 0, sizeof(Glyph)+1);
 		}
@@ -158,6 +176,8 @@ int main(int argc, char** argv)
 				free(readCpuEnd);
 				free(writeCpuStart);
 				free(writeCpuEnd);
+				free(convertCpuStart);
+				free(convertCpuEnd);
 		        return EXIT_FAILURE;
 		        memset(glyph, 0, sizeof(Glyph)+1);
 	        }
@@ -171,6 +191,8 @@ int main(int argc, char** argv)
 	free(readCpuStart);
 	free(writeCpuStart);
 	free(writeCpuEnd);
+	free(convertCpuStart);
+	free(convertCpuEnd);
 	if (verbosity >= 1) {
 		fileData = malloc(sizeof(struct stat)+1);
 		if (fileData == NULL){
@@ -240,6 +262,7 @@ int main(int argc, char** argv)
 			surrogatePercentage = (totalSurrogates*1.0)/(totalGlyphs*1.0) * 1000;
 			asciiPercentage = (totalAsciis*1.0)/(totalGlyphs*1.0) * 1000;
 			printf("Reading: real=%.1f, user=%.1f, sys=%.1f\n", readRealTime, readUserTime, readSysTime);
+			printf("Converting: real=%.1f, user=%.1f, sys=%.1f\n", convertRealTime, convertUserTime, convertSysTime);
 			printf("Writing: real=%.1f, user=%.1f, sys=%.1f\n", writeRealTime, writeUserTime, writeSysTime);
 			if (asciiPercentage % 10 >= 5) {
 				printf("ASCII: %d%%\n", (asciiPercentage/10 + 1));
@@ -266,6 +289,7 @@ int main(int argc, char** argv)
 
 Glyph* swap_endianness(Glyph* glyph)
 {
+	convertRealStart = times(convertCpuStart);
 	/* Use XOR to be more efficient with how we swap values. */
 	unsigned int temp = glyph->bytes[0] ^ glyph->bytes[1];
 	glyph->bytes[0] = (glyph->bytes[0] & 0) ^ glyph->bytes[1];
@@ -276,6 +300,12 @@ Glyph* swap_endianness(Glyph* glyph)
 		glyph->bytes[3] = glyph->bytes[3] ^ glyph->bytes[2];
 	}*/
 	glyph->end = conversion;
+
+	convertRealEnd = times(convertCpuEnd);
+	convertRealTime = convertRealTime + (double)(convertRealEnd - convertRealStart);
+	convertUserTime = convertUserTime + ((double)(convertCpuEnd->tms_utime - convertCpuStart->tms_utime) / (double)tps);
+	convertSysTime = convertSysTime + ((double)(convertCpuEnd->tms_stime - convertCpuStart->tms_stime) / (double)tps);
+
 	return glyph;
 }
 
@@ -351,25 +381,42 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 
 void write_glyph(Glyph* glyph)
 {
-	writeRealStart = times(writeCpuStart);
-	if(glyph->surrogate){
-		write(STDOUT_FILENO, glyph->bytes, SURROGATE_SIZE);
-		totalSurrogates = totalSurrogates + 1;
-	} else {
-		/*unsigned int bits = 0; 
-		if (conversion == BIG) {
-			bits = bits | (glyph->bytes[0] + (glyph->bytes[1] << 8));
-		}
-		else {
-			bits = bits | ((glyph->bytes[0] << 8) + glyph->bytes[1]);
-		}
-		*/
-		write(STDOUT_FILENO, glyph->bytes, NON_SURROGATE_SIZE);
+	FILE* wd;
+	wd = fopen(outputName, "a");
+	if (wd != NULL) {
+		writeRealStart = times(writeCpuStart);
+		if(glyph->surrogate){
+			fwrite(glyph->bytes, sizeof(glyph->bytes[0]), SURROGATE_SIZE, wd);
+			totalSurrogates = totalSurrogates + 1;
+		} else {
+			fwrite(glyph->bytes, sizeof(glyph->bytes[0]), NON_SURROGATE_SIZE, wd);		}
+			writeRealEnd = times(writeCpuEnd);
+			writeRealTime = writeRealTime + (double)(writeRealEnd - writeRealStart);
+			writeUserTime = writeUserTime + ((double)(writeCpuEnd->tms_utime - writeCpuStart->tms_utime) / (double)tps);
+			writeSysTime = writeSysTime + ((double)(writeCpuEnd->tms_stime - writeCpuStart->tms_stime) / (double)tps);
+			fclose(wd);
 	}
-	writeRealEnd = times(writeCpuEnd);
-	writeRealTime = writeRealTime + (double)(writeRealEnd - writeRealStart);
-	writeUserTime = writeUserTime + ((double)(writeCpuEnd->tms_utime - writeCpuStart->tms_utime) / (double)tps);
-	writeSysTime = writeSysTime + ((double)(writeCpuEnd->tms_stime - writeCpuStart->tms_stime) / (double)tps);
+	else {
+		writeRealStart = times(writeCpuStart);
+		if(glyph->surrogate){
+			write(STDOUT_FILENO, glyph->bytes, SURROGATE_SIZE);
+			totalSurrogates = totalSurrogates + 1;
+		} else {
+			/*unsigned int bits = 0; 
+			if (conversion == BIG) {
+				bits = bits | (glyph->bytes[0] + (glyph->bytes[1] << 8));
+			}
+			else {
+				bits = bits | ((glyph->bytes[0] << 8) + glyph->bytes[1]);
+			}
+			*/
+			write(STDOUT_FILENO, glyph->bytes, NON_SURROGATE_SIZE);
+		}
+		writeRealEnd = times(writeCpuEnd);
+		writeRealTime = writeRealTime + (double)(writeRealEnd - writeRealStart);
+		writeUserTime = writeUserTime + ((double)(writeCpuEnd->tms_utime - writeCpuStart->tms_utime) / (double)tps);
+		writeSysTime = writeSysTime + ((double)(writeCpuEnd->tms_stime - writeCpuStart->tms_stime) / (double)tps);
+	}	
 }
 
 void parse_args(int argc, char** argv)
@@ -400,7 +447,7 @@ void parse_args(int argc, char** argv)
 				if(optind < argc){
 					free(filename);
 					filenamePos = optind;
-					/*filename = strdup(argv[optind]);*/
+					filename = strdup(argv[optind]);
 				} else {
 					fprintf(stderr, "Filename not given.\n");
 					print_help();
@@ -415,7 +462,7 @@ void parse_args(int argc, char** argv)
 				if(optind > 1){
 					free(filename);
 					filenamePos = optind;
-					/*filename = strdup(argv[optind]);*/
+					filename = strdup(argv[optind]);
 				} else {
 					fprintf(stderr, "Filename not given.\n");
 					print_help();
@@ -424,21 +471,21 @@ void parse_args(int argc, char** argv)
 			case 'v':
 				if (verbosity < 2) {
 					verbosity = verbosity + 1;
-				}
+				}/*
 				if (filenamePos > 0 && noMoreCheckingNextFlag == 0) {
 					if (optind >= argc) {
 						fprintf(stderr, "Filename not given.\n");
 						print_help();
 					}
-					if (strcmp(argv[optind], "-v") == 0) {
+					if (strcmp(argv[optind], "-v") != 0) {
 						filenamePos = optind;
-					}
-					if ((optind+1) < argc) {
-						if (strcmp(argv[(optind+1)], "-v")) {
-							noMoreCheckingNextFlag = 1;
+						if ((optind+1) < argc) {
+							if (strcmp(argv[(optind+1)], "-v") == 0) {
+								noMoreCheckingNextFlag = 1;
+							}
 						}
-					}					
-				}
+					}							
+				}*/
 				break;
 			default:
 				fprintf(stderr, "Unrecognized argument.\n");
@@ -447,7 +494,11 @@ void parse_args(int argc, char** argv)
 		}
 
 	}
-	filename = strdup(argv[filenamePos]);
+	/*filename = strdup(argv[filenamePos]);*/
+	if ((argc-1) > filenamePos && strcmp(argv[(argc-1)], "-v") < 0) {
+		free(outputName);
+		outputName = strdup(argv[(argc-1)]);
+	}
 	if(endian_convert == NULL){
 		fprintf(stderr, "Converson mode not given.\n");
 		print_help();
@@ -480,6 +531,7 @@ void print_help() {
 void quit_converter(int fd)
 {
 	free(filename);
+	free(outputName);
 	close(STDERR_FILENO);
 	close(STDIN_FILENO);
 	close(STDOUT_FILENO);
