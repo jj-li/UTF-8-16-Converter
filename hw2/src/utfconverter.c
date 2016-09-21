@@ -28,9 +28,14 @@ int main(int argc, char** argv)
 	*/
 	/*After calling parse_args(), filename and conversion should be set. */
 	verbosity = 0;
+	filename = malloc(1);
 	parse_args(argc, argv);
 
-	fd = open(filename, O_RDONLY); 
+	fd = open(filename, O_RDONLY);
+	if (fd == -1) {
+		printf("File does not exist,\n");
+		return EXIT_FAILURE;
+	}
 	rv = 0; 
 	memset(buf, 0, sizeof(buf));
 	glyph = malloc(sizeof(Glyph)+1); 
@@ -108,23 +113,28 @@ int main(int argc, char** argv)
 	}
 	if (verbosity >= 1) {
 		fileData = malloc(sizeof(struct stat)+1);
+		if (fileData == NULL){
+			printf("Memory error.\n");
+			quit_converter(fd);
+		}
 		if (stat(filename, fileData) == 0) {
 			printf("Input file size: %ld bytes\n", fileData->st_size);
+			free(fileData);
 		}
 		else {
 			free(fileData);
 			/*some error*/
 		}
-		free(fileData);
 		filePath = realpath(filename, NULL);
 		if (filePath != NULL) {
 			printf("Input file path: %s\n", filePath);
+			free(filePath);
 		}
 		else {
 			free(filePath);
-			/*some error*/
+			printf("Memory error.\n");
+			quit_converter(fd);
 		}
-		free(filePath);
 		if (source == BIG) {
 			printf("Input file encoding: UTF-16BE\n");
 		}
@@ -138,23 +148,31 @@ int main(int argc, char** argv)
 			printf("Output encoding: UTF-16LE\n");
 		}
 		hostname = malloc(sizeof(char)+50);
+		if (hostname == NULL){
+			printf("Memory error.\n");
+			quit_converter(fd);
+		}
 		if (gethostname(hostname, sizeof(hostname)+50) == 0) {
 			printf("Hostmachine: %s\n", hostname);
+			free(hostname);
 		}
 		else {
 			free(hostname);
 			/*some error*/
 		}
-		free(hostname);
 		systemName = malloc(sizeof(struct utsname)+1);
+		if (systemName == NULL){
+			printf("Memory error.\n");
+			quit_converter(fd);
+		}
 		if (uname(systemName) == 0) {
 			printf("Operating System: %s\n", systemName->sysname);
+			free(systemName);
 		} 
 		else {
 			free(systemName);
 			/*some error*/
 		}
-		free(systemName);
 		if (verbosity == 2) {
 			int surrogatePercentage;
 			int asciiPercentage;
@@ -223,19 +241,20 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 	}
 	/* Check high surrogate pair using its special value range.*/
 	if(bits >= 0xD800 && bits <= 0xDBFF){ 
-		if(read(*fd, &(data[1]), 1) == 1 && 
-			read(*fd, &(data[0]), 1) == 1){
+		if(read(*fd, &(data[0]), 1) == 1 && 
+			read(*fd, &(data[1]), 1) == 1){
 			/* Now remake the bit using the second set of bytes */
+			bits = 0;
 			if (end == BIG) {
 				bits = bits | ((data[0] << 8) + data[1]);
 			}
 			else {
 				bits = bits | (data[0] + (data[1] << 8));
 			} 
-			if(bits >= 0xDC00 && bits <= 0xDFFF){ /*Check low surrogate pair.*/
- 				lseek(*fd, -2, SEEK_CUR); 
+			if(bits >= 0xDC00 && bits <= 0xDFFF){ /*Check low surrogate pair.*/ 
  				glyph->surrogate = true;
  			} else {
+ 				lseek(*fd, -2, SEEK_CUR);
  				glyph->surrogate = false; 
  			}
  		}
@@ -302,41 +321,12 @@ void parse_args(int argc, char** argv)
 				}
 				endian_convert = optarg;
 				if(optind < argc){
+					free(filename);
 					filename = strdup(argv[optind]);
 				} else {
 					fprintf(stderr, "Filename not given.\n");
 					print_help();
 				}
-				/*
-				if(optind >= argc){
-					fprintf(stderr, "Filename not given.\n");
-					print_help();
-				} 
-				else {
-					if((strcmp(argv[optind], "16LE") == 0) || (strcmp(argv[optind], "16BE") == 0)){ 
-						endian_convert = argv[optind];
-						optind = optind + 1;
-						if(optind < argc){
-							filename = strdup(argv[optind]);
-						} else {
-							fprintf(stderr, "Filename not given.\n");
-							print_help();
-						}
-					}
-					else if((strcmp(optarg, "") == 0)){ 
-						fprintf(stderr, "Converson mode not given.\n");
-						print_help();
-					}
-					else{
-						endian_convert = optarg;
-						if(optind > 1){
-							filename = strdup(argv[optind]);
-						} else {
-							fprintf(stderr, "Filename not given.\n");
-							print_help();
-						}
-					}
-				}*/
 				break;
 			case 'z':
 				if((strcmp(optarg, "") == 0)){ 
@@ -345,6 +335,7 @@ void parse_args(int argc, char** argv)
 				}
 				endian_convert = optarg;
 				if(optind > 1){
+					free(filename);
 					filename = strdup(argv[optind]);
 				} else {
 					fprintf(stderr, "Filename not given.\n");
