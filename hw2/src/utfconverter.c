@@ -10,6 +10,21 @@ int totalSurrogates;
 int totalAsciis;
 int filenamePos;
 int noMoreCheckingNextFlag;
+int tps;
+double readRealTime;
+double readUserTime;
+double readSysTime;
+clock_t readRealStart;
+clock_t readRealEnd;
+struct tms* readCpuStart;
+struct tms* readCpuEnd;
+double writeRealTime;
+double writeUserTime;
+double writeSysTime;
+clock_t writeRealStart;
+clock_t writeRealEnd;
+struct tms* writeCpuStart;
+struct tms* writeCpuEnd;
 int main(int argc, char** argv)
 {
 	/*
@@ -47,10 +62,26 @@ int main(int argc, char** argv)
 	totalGlyphs = 0;
 	totalSurrogates = 0;
 	totalAsciis = 0;
+	readRealTime = 0;
+	readUserTime = 0;
+	readSysTime = 0;
+	readCpuStart = malloc(sizeof(struct tms)+1);
+	readCpuEnd = malloc(sizeof(struct tms)+1);
+	writeRealTime = 0;
+	writeUserTime = 0;
+	writeSysTime = 0;
+	writeCpuStart = malloc(sizeof(struct tms)+1);
+	writeCpuEnd = malloc(sizeof(struct tms)+1);
+	tps = sysconf(_SC_CLK_TCK); 
 	/*Handle BOM bytes for UTF16 specially. 
     Read our values into the first and second elements.*/
+	readRealStart = times(readCpuStart);
 	if((rv = read(fd, &buf[0], 1)) == 1 && 
 			(rv = read(fd, &buf[1], 1)) == 1){
+		readRealEnd = times(readCpuEnd);
+		readRealTime = (double)(readRealEnd - readRealStart);
+		readUserTime = ((double)(readCpuEnd->tms_utime - readCpuStart->tms_utime) / (double)tps);
+		readSysTime = ((double)(readCpuEnd->tms_stime - readCpuStart->tms_stime) / (double)(tps));
 		void* memset_return; 
 
 		if(buf[0] == 0xff && buf[1] == 0xfe){
@@ -68,6 +99,8 @@ int main(int argc, char** argv)
 		} else {
 			/*file has no BOM*/
 			free(glyph); 
+			free(readCpuStart);
+			free(readCpuEnd);
 			fprintf(stderr, "File has no BOM.\n");
 			quit_converter(NO_FD); 
 		}
@@ -79,6 +112,10 @@ int main(int argc, char** argv)
 			    "movl $.LC0, %edi\n\t"
 			    "movl $0, %eax");*/
 			/* Now make the request again. */
+			free(readCpuStart);
+			free(readCpuEnd);
+			free(writeCpuStart);
+			free(writeCpuEnd);
 			return EXIT_FAILURE;
 			memset(glyph, 0, sizeof(Glyph)+1);
 		}
@@ -97,8 +134,14 @@ int main(int argc, char** argv)
 	}
 
 	/* Now deal with the rest of the bytes.*/
+	readRealStart = times(readCpuStart);
 	while((rv = read(fd, &buf[0], 1)) == 1 &&  
 			(rv = read(fd, &buf[1], 1)) == 1){
+		readRealEnd = times(readCpuEnd);
+		readRealTime = readRealTime + (double)(readRealEnd - readRealStart);
+		readUserTime = readUserTime + ((double)(readCpuEnd->tms_utime - readCpuStart->tms_utime) / (double)tps);
+		readSysTime = readSysTime + ((double)(readCpuEnd->tms_stime - readCpuStart->tms_stime) / (double)tps);
+		
 		void* memset_return;
 
 		write_glyph(fill_glyph(glyph, buf, source, &fd));
@@ -111,10 +154,23 @@ int main(int argc, char** argv)
 		            "movl $.LC0, %edi\n\t"
 		            "movl $0, %eax");*/
 		        /* Now make the request again. */
+		        free(readCpuStart);
+				free(readCpuEnd);
+				free(writeCpuStart);
+				free(writeCpuEnd);
 		        return EXIT_FAILURE;
 		        memset(glyph, 0, sizeof(Glyph)+1);
 	        }
+	    readRealStart = times(readCpuStart);
 	}
+	readRealEnd = times(readCpuEnd);
+	readRealTime = readRealTime + (double)(readRealEnd - readRealStart);
+	readUserTime = readUserTime + ((double)(readCpuEnd->tms_utime - readCpuStart->tms_utime) / (double)tps);
+	readSysTime = readSysTime + ((double)(readCpuEnd->tms_stime - readCpuStart->tms_stime) / (double)tps);
+	free(readCpuEnd);
+	free(readCpuStart);
+	free(writeCpuStart);
+	free(writeCpuEnd);
 	if (verbosity >= 1) {
 		fileData = malloc(sizeof(struct stat)+1);
 		if (fileData == NULL){
@@ -122,7 +178,7 @@ int main(int argc, char** argv)
 			quit_converter(fd);
 		}
 		if (stat(filename, fileData) == 0) {
-			printf("Input file size: %ld bytes\n", fileData->st_size);
+			printf("Input file size: %ld kb\n", fileData->st_size);
 			free(fileData);
 		}
 		else {
@@ -183,6 +239,8 @@ int main(int argc, char** argv)
 
 			surrogatePercentage = (totalSurrogates*1.0)/(totalGlyphs*1.0) * 1000;
 			asciiPercentage = (totalAsciis*1.0)/(totalGlyphs*1.0) * 1000;
+			printf("Reading: real=%.1f, user=%.1f, sys=%.1f\n", readRealTime, readUserTime, readSysTime);
+			printf("Writing: real=%.1f, user=%.1f, sys=%.1f\n", writeRealTime, writeUserTime, writeSysTime);
 			if (asciiPercentage % 10 >= 5) {
 				printf("ASCII: %d%%\n", (asciiPercentage/10 + 1));
 			}
@@ -245,8 +303,13 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 	}
 	/* Check high surrogate pair using its special value range.*/
 	if(bits >= 0xD800 && bits <= 0xDBFF){ 
+		readRealStart = times(readCpuStart);
 		if(read(*fd, &(data[0]), 1) == 1 && 
 			read(*fd, &(data[1]), 1) == 1){
+			readRealEnd = times(readCpuEnd);
+			readRealTime = readRealTime + (double)(readRealEnd - readRealStart);
+			readUserTime = readUserTime + ((double)(readCpuEnd->tms_utime - readCpuStart->tms_utime) / (double)tps);
+			readSysTime = readSysTime + ((double)(readCpuEnd->tms_stime - readCpuStart->tms_stime) / (double)tps);
 			/* Now remake the bit using the second set of bytes */
 			bits = 0;
 			if (end == BIG) {
@@ -261,6 +324,11 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
  				lseek(*fd, -2, SEEK_CUR);
  				glyph->surrogate = false; 
  			}
+ 		} else {
+ 			readRealEnd = times(readCpuEnd);
+			readRealTime = readRealTime + (double)(readRealEnd - readRealStart);
+			readUserTime = readUserTime + ((double)(readCpuEnd->tms_utime - readCpuStart->tms_utime) / (double)tps);
+			readSysTime = readSysTime + ((double)(readCpuEnd->tms_stime - readCpuStart->tms_stime) / (double)tps);
  		}
  	}
  	else {
@@ -283,6 +351,7 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 
 void write_glyph(Glyph* glyph)
 {
+	writeRealStart = times(writeCpuStart);
 	if(glyph->surrogate){
 		write(STDOUT_FILENO, glyph->bytes, SURROGATE_SIZE);
 		totalSurrogates = totalSurrogates + 1;
@@ -297,6 +366,10 @@ void write_glyph(Glyph* glyph)
 		*/
 		write(STDOUT_FILENO, glyph->bytes, NON_SURROGATE_SIZE);
 	}
+	writeRealEnd = times(writeCpuEnd);
+	writeRealTime = writeRealTime + (double)(writeRealEnd - writeRealStart);
+	writeUserTime = writeUserTime + ((double)(writeCpuEnd->tms_utime - writeCpuStart->tms_utime) / (double)tps);
+	writeSysTime = writeSysTime + ((double)(writeCpuEnd->tms_stime - writeCpuStart->tms_stime) / (double)tps);
 }
 
 void parse_args(int argc, char** argv)
@@ -357,7 +430,7 @@ void parse_args(int argc, char** argv)
 						fprintf(stderr, "Filename not given.\n");
 						print_help();
 					}
-					if (strcmp(argv[optind], "-v")) {
+					if (strcmp(argv[optind], "-v") == 0) {
 						filenamePos = optind;
 					}
 					if ((optind+1) < argc) {

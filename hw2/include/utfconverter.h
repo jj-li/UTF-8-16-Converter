@@ -8,7 +8,8 @@
 #include <sys/utsname.h>
 #include <sys/stat.h>
 #include <stdlib.h>
-#include <time.h>
+#include <sys/times.h>
+#include <stdint.h>
 
 
 #define MAX_BYTES 4
