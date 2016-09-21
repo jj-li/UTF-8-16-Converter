@@ -11,6 +11,9 @@ int totalSurrogates;
 int totalAsciis;
 int filenamePos;
 int noMoreCheckingNextFlag;
+int vCounter;
+int oldOptind;
+/*Variables for the time counting*/
 int tps;
 double readRealTime;
 double readUserTime;
@@ -55,6 +58,8 @@ int main(int argc, char** argv)
 	outputName = malloc(1);
 	filenamePos = 0;
 	noMoreCheckingNextFlag = 0;
+	vCounter = -1;
+	oldOptind = 1;
 	parse_args(argc, argv);
 
 	fd = open(filename, O_RDONLY);
@@ -486,16 +491,23 @@ void parse_args(int argc, char** argv)
 						}
 					}							
 				}*/
+				if (optind > filenamePos) {
+					if (optind > oldOptind) {
+						vCounter = vCounter + 1;
+					}
+				}
 				break;
 			default:
 				fprintf(stderr, "Unrecognized argument.\n");
 				quit_converter(NO_FD);
 				break;
 		}
-
+		if (optind > oldOptind) {
+			oldOptind = optind;
+		}
 	}
 	/*filename = strdup(argv[filenamePos]);*/
-	if ((argc-1) > filenamePos && strcmp(argv[(argc-1)], "-v") < 0) {
+	if ((argc-1) > (vCounter + filenamePos)) {
 		free(outputName);
 		outputName = strdup(argv[(argc-1)]);
 	}
