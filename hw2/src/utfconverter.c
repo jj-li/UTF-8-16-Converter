@@ -387,38 +387,50 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 	if (end == EIGHT) {
 		if (data[0] >= 0x0 && data[0] <= 0x7F) {/*ONE BYTE*/
 			lseek(*fd, -1, SEEK_CUR);
-			glyph->byte[0] = data[0];
 			bits = data[0];
+			glyph->byte[0] = bits;
+
 		} 
 		else if (data[0] >= 0xC0 && data[0] <= 0xDF) {/*TWO BYTES*/
-			glyph->byte[0] = data[0] & 0x1F;
-			glyph->byte[1] = data[1] & 0x3F;
-			bits = (glyph->byte[0] << 6) + glyph->byte[1];
+			data[0] = data[0] & 0x1F;
+			data[1] = data[1] & 0x3F;
+			bits = (data[0] << 6) + data[1];
+			glyph->bytes[0] = bits;
 		}
 		else if (data[0] >= 0xE0 && data[0] <= 0xEF) {/*THREE BYTES*/
-			glyph->byte[0] = data[0] & 0xF;
-			glyph->byte[1] = data[1] & 0x3F;
+			data[0] = data[0] & 0xF;
+			data[1] = data[1] & 0x3F;
+			bits = (data[0] << 12) + (data[1] << 6);
 			if(read(*fd, &(data[0]), 1) == 1){
 				if (sparky == 1) {
 					data[0] = data[0] >> 24;
 				}
-				glyph->bytes[2] = data[0] & 0x3F;
+				data[0] = data[0] & 0x3F;
+				bits = bits + data[0];
+				glyph->bytes[0] = bits;
 			}
-			bits = (glyph->byte[0] << 12) + (glyph->byte[1] << 6) + glyph->byte[2];
+			else {
+				/*Corrupted File*/
+			}
 		}
 		else if (data[0] >= 0xF0 && data[0] <= 0xF7) {/*FOUR BYTES*/
-			glyph->byte[0] = data[0] & 0x7;
-			glyph->byte[1] = data[1] & 0x3F;
+			data[0] = data[0] & 0x7;
+			data[1] = data[1] & 0x3F;
+			bits = (glyph->byte[0] << 18) + (glyph->byte[1] << 12);
 			if(read(*fd, &(data[0]), 1) == 1 && 
 				read(*fd, &(data[1]), 1) == 1){
 				if (sparky == 1) {
 					data[0] = data[0] >> 24;
 					data[1] = data[1] >> 24;
 				}
-				glyph->bytes[2] = data[0] & 0x3F;
-				glyph->bytes[3] = data[1] & 0x3F;
+				data[0] = data[0] & 0x3F;
+				data[1] = data[1] & 0x3F;
+				bits = bits + (data[0] << 6) + data[1];
+				glyph->bytes[0] = bits;
 			}
-			bits = (glyph->byte[0] << 18) + (glyph->byte[1] << 12) + (glyph->byte[2] << 6) + glyph->byte[3];
+			else {
+				/*Corrupted File*/
+			}
 		}
 		else {/*ERROR UNKNOWN ENCODING!*/
 			print_help();
@@ -446,6 +458,7 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 		readRealTime = readRealTime + (double)(readRealEnd - readRealStart);
 		readUserTime = readUserTime + ((double)(readCpuEnd->tms_utime - readCpuStart->tms_utime) / (double)tps);
 		readSysTime = readSysTime + ((double)(readCpuEnd->tms_stime - readCpuStart->tms_stime) / (double)tps);
+		return convert(glyph, conversion);
 	}
 	else { /*UTF-16 ENCODING*/
 		glyph->bytes[0] = data[0];
@@ -657,5 +670,48 @@ void quit_converter(int fd)
 }
 
 Glyph* convert(Glyph* glyph, endianness end) {
+	unsigned int temp;
+	unsigned int bits;
+	unsigned int msb;
+	unsigned int lsb;
 
+	convertRealStart = times(convertCpuStart);
+
+	bits = glyph->bytes[0];
+	if (bits > 0x10000) {
+		bits = bits - 0x10000;
+		msb = (bits >> 10) + 0xD800;
+		lsb = (bits & 0x3FF) + 0xDC00;
+		glyph->surrogate = true;
+		if (end == BIG) {
+			gylph->bytes[0] = msb & 0xFF;
+			glyph->bytes[1] = msb >> 8;
+			glyph->bytes[2] = lsb & 0xFF;
+			glyph->bytes[3] = lsb >> 8;
+		}
+		else {
+			gylph->bytes[1] = msb & 0xFF;
+			glyph->bytes[0] = msb >> 8;
+			glyph->bytes[3] = lsb & 0xFF;
+			glyph->bytes[2] = lsb >> 8;
+		}
+	}
+	else {
+		glyph->surrogate = false;
+		if (end == BIG) {
+			gylph->bytes[0] = msb & 0xFF;
+			glyph->bytes[1] = msb >> 8;
+		}
+		else {
+			gylph->bytes[1] = msb & 0xFF;
+			glyph->bytes[0] = msb >> 8;
+		}
+	}
+	glyph->end = end;
+	convertRealEnd = times(convertCpuEnd);
+	convertRealTime = convertRealTime + (double)(convertRealEnd - convertRealStart);
+	convertUserTime = convertUserTime + ((double)(convertCpuEnd->tms_utime - convertCpuStart->tms_utime) / (double)tps);
+	convertSysTime = convertSysTime + ((double)(convertCpuEnd->tms_stime - convertCpuStart->tms_stime) / (double)tps);
+
+	return glyph;
 }
