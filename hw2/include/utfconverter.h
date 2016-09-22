@@ -30,7 +30,7 @@
 #endif
 
 /** The enum for endianness. */
-typedef enum {LITTLE, BIG} endianness;
+typedef enum {LITTLE, BIG, EIGHT} endianness;
 
 /** The struct for a codepoint glyph. */
 typedef struct Glyph {
@@ -113,3 +113,14 @@ void print_help();
  * to close.
  */
 void quit_converter(int fd);
+
+/**
+* A function that converts a UTF-8 glyph to a UTF-16LE or UTF-16BE
+* glyph, and returns the result as a pointer to the converted glyph.
+*
+* @param glyph The UTF-8 glyph to convert.
+* @param end
+The endianness to convert to (UTF-16LE or UTF-16BE).
+* @return The converted glyph.
+*/
+Glyph* convert(Glyph* glyph, endianness end);

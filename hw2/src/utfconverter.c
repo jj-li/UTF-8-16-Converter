@@ -113,7 +113,64 @@ int main(int argc, char** argv)
 		} else if (buf[0] == 0xfe000000 && buf[1] == 0xff000000){
 			source = BIG;
 			sparky = 1;
-		} else {
+		} else if (buf[0] == 0xef && buf[1] == 0xbb){
+			if ((rv = read(fd, &buf[0], 1)) == 1) {
+				if (buf[0] == 0xbf) {
+					source = EIGHT;
+				}
+				else {
+					free(glyph); 
+					free(readCpuStart);
+					free(readCpuEnd);
+					free(writeCpuStart);
+					free(writeCpuEnd);
+					free(convertCpuStart);
+					free(convertCpuEnd);
+					quit_converter(fd);
+				}
+			}
+			else {
+				free(glyph); 
+				free(readCpuStart);
+				free(readCpuEnd);
+				free(writeCpuStart);
+				free(writeCpuEnd);
+				free(convertCpuStart);
+				free(convertCpuEnd);
+				quit_converter(fd);
+			}
+			
+		}
+		else if (buf[0] == 0xef000000 && buf[1] == 0xbb000000){
+			if ((rv = read(fd, &buf[0], 1)) == 1) {
+				if (buf[0] == 0xbf000000) {
+					source = EIGHT;
+					sparky = 1;
+				}
+				else {
+					free(glyph); 
+					free(readCpuStart);
+					free(readCpuEnd);
+					free(writeCpuStart);
+					free(writeCpuEnd);
+					free(convertCpuStart);
+					free(convertCpuEnd);
+					quit_converter(fd);
+				}
+			}
+			else {
+				free(glyph); 
+				free(readCpuStart);
+				free(readCpuEnd);
+				free(writeCpuStart);
+				free(writeCpuEnd);
+				free(convertCpuStart);
+				free(convertCpuEnd);
+				quit_converter(fd);
+			}
+			
+		}
+		else {
 			/*file has no BOM*/
 			free(glyph); 
 			free(readCpuStart);
@@ -123,7 +180,7 @@ int main(int argc, char** argv)
 			free(convertCpuStart);
 			free(convertCpuEnd);
 			fprintf(stderr, "File has no BOM.\n");
-			quit_converter(NO_FD); 
+			quit_converter(fd); 
 		}
 		memset_return = memset(glyph, 0, sizeof(Glyph)+1);
 		/* Memory write failed, recover from it: */
@@ -288,7 +345,12 @@ int main(int argc, char** argv)
 	}
 
 	free(glyph);
-	quit_converter(NO_FD);
+	free(filename);
+	free(outputName);
+	close(STDERR_FILENO);
+	close(STDIN_FILENO);
+	close(STDOUT_FILENO);
+	close(fd);
 	return 0;
 }
 
@@ -379,6 +441,7 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 		glyph->bytes[3] = data[1];
 	}
 	glyph->end = end;
+
 	if (conversion != end) {
 		return swap_endianness(glyph);
 	}
@@ -408,14 +471,6 @@ void write_glyph(Glyph* glyph)
 			write(STDOUT_FILENO, glyph->bytes, SURROGATE_SIZE);
 			totalSurrogates = totalSurrogates + 1;
 		} else {
-			/*unsigned int bits = 0; 
-			if (conversion == BIG) {
-				bits = bits | (glyph->bytes[0] + (glyph->bytes[1] << 8));
-			}
-			else {
-				bits = bits | ((glyph->bytes[0] << 8) + glyph->bytes[1]);
-			}
-			*/
 			write(STDOUT_FILENO, glyph->bytes, NON_SURROGATE_SIZE);
 		}
 		writeRealEnd = times(writeCpuEnd);
@@ -443,55 +498,34 @@ void parse_args(int argc, char** argv)
 		switch(c){ 
 			case 'h':
 				print_help();
+				free(filename);
+				free(outputName);
+				close(STDERR_FILENO);
+				close(STDIN_FILENO);
+				close(STDOUT_FILENO);
+				close(NO_FD);
+				exit(0);
 				break;
 			case 'u':
 				if ((strcmp(optarg, "16LE") != 0) && (strcmp(optarg, "16BE") != 0)) {
 					fprintf(stderr, "Invalid conversion mode.\n");
 					print_help();
+					quit_converter(NO_FD);
 				}
 				endian_convert = optarg;
-				/*if(optind < argc){
-					free(filename);
-					filenamePos = optind;
-					filename = strdup(argv[optind]);
-				} else {
-					fprintf(stderr, "Filename not given.\n");
-					print_help();
-				}*/
 				break;
 			case 'z':
 				if((strcmp(optarg, "") == 0)){ 
 					fprintf(stderr, "Converson mode not given.\n");
 					print_help();
+					quit_converter(NO_FD);
 				}
 				endian_convert = optarg;
-				/*if(optind > 1){
-					free(filename);
-					filenamePos = optind;
-					filename = strdup(argv[optind]);
-				} else {
-					fprintf(stderr, "Filename not given.\n");
-					print_help();
-				}*/
 				break;
 			case 'v':
 				if (verbosity < 2) {
 					verbosity = verbosity + 1;
-				}/*
-				if (filenamePos > 0 && noMoreCheckingNextFlag == 0) {
-					if (optind >= argc) {
-						fprintf(stderr, "Filename not given.\n");
-						print_help();
-					}
-					if (strcmp(argv[optind], "-v") != 0) {
-						filenamePos = optind;
-						if ((optind+1) < argc) {
-							if (strcmp(argv[(optind+1)], "-v") == 0) {
-								noMoreCheckingNextFlag = 1;
-							}
-						}
-					}							
-				}*/
+				}
 				if (optind > filenamePos) {
 					if (optind > oldOptind) {
 						vCounter = vCounter + 1;
@@ -507,22 +541,22 @@ void parse_args(int argc, char** argv)
 			oldOptind = optind;
 		}
 	}
-	/*filename = strdup(argv[filenamePos]);*/
 	if (optind < argc) {
 		free(filename);
 		filename = strdup(argv[optind]);
+	}
+	else {
+		printf("No filename given.");
+		quit_converter(NO_FD);
 	}
 	if ((optind+1) < argc) {
 		free(outputName);
 		outputName = strdup(argv[(optind+1)]);
 	}
-	/*if ((vCounter + filenamePos + 1) < argc) {
-		free(outputName);
-		outputName = strdup(argv[(vCounter + filenamePos + 1)]);
-	}*/
 	if(endian_convert == NULL){
 		fprintf(stderr, "Converson mode not given.\n");
 		print_help();
+		quit_converter(NO_FD);
 	}
 
 	if(strcmp(endian_convert, "16LE") == 0){ 
@@ -546,7 +580,6 @@ void print_help() {
 			printf("%s", USAGE[i]);
 		}
 	}
-	quit_converter(NO_FD);
 }
 
 void quit_converter(int fd)
@@ -558,6 +591,10 @@ void quit_converter(int fd)
 	close(STDOUT_FILENO);
 	if(fd != NO_FD)
 		close(fd);
-	exit(0);
+	exit(EXIT_FAILURE);
 	/* Ensure that the file is included regardless of where we start compiling from. */
+}
+
+Glyph* convert(Glyph* glyph, endianness end) {
+
 }
