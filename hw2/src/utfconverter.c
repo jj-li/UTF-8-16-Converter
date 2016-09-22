@@ -294,16 +294,17 @@ int main(int argc, char** argv)
 
 Glyph* swap_endianness(Glyph* glyph)
 {
+	unsigned int temp;
 	convertRealStart = times(convertCpuStart);
 	/* Use XOR to be more efficient with how we swap values. */
-	unsigned int temp = glyph->bytes[0] ^ glyph->bytes[1];
+	temp = glyph->bytes[0] ^ glyph->bytes[1];
 	glyph->bytes[0] = (glyph->bytes[0] & 0) ^ glyph->bytes[1];
 	glyph->bytes[1] = glyph->bytes[1] ^ temp;
-	/*if(glyph->surrogate){  //If a surrogate pair, swap the next two bytes.
+	if(glyph->surrogate){  //If a surrogate pair, swap the next two bytes.
 		temp = glyph->bytes[2] ^ glyph->bytes[3];
 		glyph->bytes[2] = (glyph->bytes[2] & 0) ^ glyph->bytes[3];
-		glyph->bytes[3] = glyph->bytes[3] ^ glyph->bytes[2];
-	}*/
+		glyph->bytes[3] = glyph->bytes[3] ^ temp;
+	}
 	glyph->end = conversion;
 
 	convertRealEnd = times(convertCpuEnd);
@@ -449,14 +450,14 @@ void parse_args(int argc, char** argv)
 					print_help();
 				}
 				endian_convert = optarg;
-				if(optind < argc){
+				/*if(optind < argc){
 					free(filename);
 					filenamePos = optind;
 					filename = strdup(argv[optind]);
 				} else {
 					fprintf(stderr, "Filename not given.\n");
 					print_help();
-				}
+				}*/
 				break;
 			case 'z':
 				if((strcmp(optarg, "") == 0)){ 
@@ -464,14 +465,14 @@ void parse_args(int argc, char** argv)
 					print_help();
 				}
 				endian_convert = optarg;
-				if(optind > 1){
+				/*if(optind > 1){
 					free(filename);
 					filenamePos = optind;
 					filename = strdup(argv[optind]);
 				} else {
 					fprintf(stderr, "Filename not given.\n");
 					print_help();
-				}
+				}*/
 				break;
 			case 'v':
 				if (verbosity < 2) {
@@ -507,10 +508,18 @@ void parse_args(int argc, char** argv)
 		}
 	}
 	/*filename = strdup(argv[filenamePos]);*/
-	if ((argc-1) > (vCounter + filenamePos)) {
-		free(outputName);
-		outputName = strdup(argv[(argc-1)]);
+	if (optind < argc) {
+		free(filename);
+		filename = strdup(argv[optind]);
 	}
+	if ((optind+1) < argc) {
+		free(outputName);
+		outputName = strdup(argv[(optind+1)]);
+	}
+	/*if ((vCounter + filenamePos + 1) < argc) {
+		free(outputName);
+		outputName = strdup(argv[(vCounter + filenamePos + 1)]);
+	}*/
 	if(endian_convert == NULL){
 		fprintf(stderr, "Converson mode not given.\n");
 		print_help();
