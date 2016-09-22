@@ -196,8 +196,7 @@ int main(int argc, char** argv)
 			free(writeCpuEnd);
 			free(convertCpuStart);
 			free(convertCpuEnd);
-			return EXIT_FAILURE;
-			memset(glyph, 0, sizeof(Glyph)+1);
+			quit_converter(fd);
 		}
 		if (conversion == LITTLE) {
 			glyph->surrogate = false;
@@ -240,8 +239,7 @@ int main(int argc, char** argv)
 				free(writeCpuEnd);
 				free(convertCpuStart);
 				free(convertCpuEnd);
-		        return EXIT_FAILURE;
-		        memset(glyph, 0, sizeof(Glyph)+1);
+		        quit_converter(fd);
 	        }
 	    readRealStart = times(readCpuStart);
 	}
@@ -380,70 +378,133 @@ Glyph* swap_endianness(Glyph* glyph)
 Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 {
 	unsigned int bits;
-
+	readRealStart = times(readCpuStart);
 	if (sparky == 1) {
-		data[0] = data[0] >> 24;
-		data[1] = data[1] >> 24;
+			data[0] = data[0] >> 24;
+			data[1] = data[1] >> 24;
 	}
-	glyph->bytes[0] = data[0];
-	glyph->bytes[1] = data[1];
-
-	/* bits presents the codepoint */
-	bits = 0; 
-	if (end == BIG) {
-		bits = bits | ((data[0] << 8) + data[1]);
-	}
-	else {
-		bits = bits | (data[0] + (data[1] << 8));
-	}
-	if (bits <= 0x007F) {
-		totalAsciis = totalAsciis + 1;
-	}
-	/* Check high surrogate pair using its special value range.*/
-	if(bits >= 0xD800 && bits <= 0xDBFF){ 
-		readRealStart = times(readCpuStart);
-		if(read(*fd, &(data[0]), 1) == 1 && 
-			read(*fd, &(data[1]), 1) == 1){
-			readRealEnd = times(readCpuEnd);
-			readRealTime = readRealTime + (double)(readRealEnd - readRealStart);
-			readUserTime = readUserTime + ((double)(readCpuEnd->tms_utime - readCpuStart->tms_utime) / (double)tps);
-			readSysTime = readSysTime + ((double)(readCpuEnd->tms_stime - readCpuStart->tms_stime) / (double)tps);
-			/* Now remake the bit using the second set of bytes */
-			bits = 0;
-			if (end == BIG) {
-				bits = bits | ((data[0] << 8) + data[1]);
+	/*UTF-8 ENCODING*/
+	if (end == EIGHT) {
+		if (data[0] >= 0x0 && data[0] <= 0x7F) {/*ONE BYTE*/
+			lseek(*fd, -1, SEEK_CUR);
+			glyph->byte[0] = data[0];
+			bits = data[0];
+		} 
+		else if (data[0] >= 0xC0 && data[0] <= 0xDF) {/*TWO BYTES*/
+			glyph->byte[0] = data[0] & 0x1F;
+			glyph->byte[1] = data[1] & 0x3F;
+			bits = (glyph->byte[0] << 6) + glyph->byte[1];
+		}
+		else if (data[0] >= 0xE0 && data[0] <= 0xEF) {/*THREE BYTES*/
+			glyph->byte[0] = data[0] & 0xF;
+			glyph->byte[1] = data[1] & 0x3F;
+			if(read(*fd, &(data[0]), 1) == 1){
+				if (sparky == 1) {
+					data[0] = data[0] >> 24;
+				}
+				glyph->bytes[2] = data[0] & 0x3F;
 			}
-			else {
-				bits = bits | (data[0] + (data[1] << 8));
-			} 
-			if(bits >= 0xDC00 && bits <= 0xDFFF){ /*Check low surrogate pair.*/ 
- 				glyph->surrogate = true;
- 			} else {
- 				lseek(*fd, -2, SEEK_CUR);
- 				glyph->surrogate = false; 
- 			}
- 		} else {
- 			readRealEnd = times(readCpuEnd);
-			readRealTime = readRealTime + (double)(readRealEnd - readRealStart);
-			readUserTime = readUserTime + ((double)(readCpuEnd->tms_utime - readCpuStart->tms_utime) / (double)tps);
-			readSysTime = readSysTime + ((double)(readCpuEnd->tms_stime - readCpuStart->tms_stime) / (double)tps);
- 		}
- 	}
- 	else {
- 		glyph->surrogate = false;
- 	}
-
-	if(!glyph->surrogate){
-		glyph->bytes[2] = 0;
-		glyph->bytes[3] = 0;
-	} else {
-		glyph->bytes[2] = data[0];
-		glyph->bytes[3] = data[1];
+			bits = (glyph->byte[0] << 12) + (glyph->byte[1] << 6) + glyph->byte[2];
+		}
+		else if (data[0] >= 0xF0 && data[0] <= 0xF7) {/*FOUR BYTES*/
+			glyph->byte[0] = data[0] & 0x7;
+			glyph->byte[1] = data[1] & 0x3F;
+			if(read(*fd, &(data[0]), 1) == 1 && 
+				read(*fd, &(data[1]), 1) == 1){
+				if (sparky == 1) {
+					data[0] = data[0] >> 24;
+					data[1] = data[1] >> 24;
+				}
+				glyph->bytes[2] = data[0] & 0x3F;
+				glyph->bytes[3] = data[1] & 0x3F;
+			}
+			bits = (glyph->byte[0] << 18) + (glyph->byte[1] << 12) + (glyph->byte[2] << 6) + glyph->byte[3];
+		}
+		else {/*ERROR UNKNOWN ENCODING!*/
+			print_help();
+			free(readCpuStart);
+			free(readCpuEnd);
+			free(writeCpuStart);
+			free(writeCpuEnd);
+			free(convertCpuStart);
+			free(convertCpuEnd);
+		    quit_converter(fd);
+		}
+		if (bits > 0x1FFFFF) {
+			/*Outside of code point range*/
+			print_help();
+			free(readCpuStart);
+			free(readCpuEnd);
+			free(writeCpuStart);
+			free(writeCpuEnd);
+			free(convertCpuStart);
+			free(convertCpuEnd);
+		    quit_converter(fd);
+		}
+		glyph->end = end;
+		readRealEnd = times(readCpuEnd);
+		readRealTime = readRealTime + (double)(readRealEnd - readRealStart);
+		readUserTime = readUserTime + ((double)(readCpuEnd->tms_utime - readCpuStart->tms_utime) / (double)tps);
+		readSysTime = readSysTime + ((double)(readCpuEnd->tms_stime - readCpuStart->tms_stime) / (double)tps);
 	}
-	glyph->end = end;
+	else { /*UTF-16 ENCODING*/
+		glyph->bytes[0] = data[0];
+		glyph->bytes[1] = data[1];
 
-	if (conversion != end) {
-		return swap_endianness(glyph);
+		/* bits presents the codepoint */
+		bits = 0; 
+		if (end == BIG) {
+			bits = bits | ((data[0] << 8) + data[1]);
+		}
+		else {
+			bits = bits | (data[0] + (data[1] << 8));
+		}
+		if (bits <= 0x007F) {
+			totalAsciis = totalAsciis + 1;
+		}
+		/* Check high surrogate pair using its special value range.*/
+		if(bits >= 0xD800 && bits <= 0xDBFF){ 
+			if(read(*fd, &(data[0]), 1) == 1 && 
+				read(*fd, &(data[1]), 1) == 1){
+				/* Now remake the bit using the second set of bytes */
+				bits = 0;
+				if (sparky == 1) {
+					data[0] = data[0] >> 24;
+					data[1] = data[1] >> 24;
+				}
+				if (end == BIG) {
+					bits = bits | ((data[0] << 8) + data[1]);
+				}
+				else {
+					bits = bits | (data[0] + (data[1] << 8));
+				} 
+				if(bits >= 0xDC00 && bits <= 0xDFFF){ /*Check low surrogate pair.*/ 
+	 				glyph->surrogate = true;
+	 			} else {
+	 				lseek(*fd, -2, SEEK_CUR);
+	 				glyph->surrogate = false; 
+	 			}
+	 		}
+	 	}
+	 	else {
+	 		glyph->surrogate = false;
+	 	}
+
+		if(!glyph->surrogate){
+			glyph->bytes[2] = 0;
+			glyph->bytes[3] = 0;
+		} else {
+			glyph->bytes[2] = data[0];
+			glyph->bytes[3] = data[1];
+		}
+		glyph->end = end;
+		readRealEnd = times(readCpuEnd);
+		readRealTime = readRealTime + (double)(readRealEnd - readRealStart);
+		readUserTime = readUserTime + ((double)(readCpuEnd->tms_utime - readCpuStart->tms_utime) / (double)tps);
+		readSysTime = readSysTime + ((double)(readCpuEnd->tms_stime - readCpuStart->tms_stime) / (double)tps);
+		if (conversion != end) {
+			return swap_endianness(glyph);
+		}
 	}
 	return glyph;
 }
