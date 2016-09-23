@@ -47,7 +47,13 @@ int main(int argc, char** argv)
 	/*After calling parse_args(), filename and conversion should be set. */
 	verbosity = 0;
 	filename = malloc(2);
+	if (filename == NULL) {
+		return EXIT_FAILURE;
+	}
 	outputName = malloc(2);
+	if (outputName == NULL) {
+		return EXIT_FAILURE;
+	}
 	parse_args(argc, argv);
 	fd = open(filename, O_RDONLY);
 	if (fd == -1) {
@@ -57,16 +63,30 @@ int main(int argc, char** argv)
 	numBytes = 0;
 	rv = 0; 
 	od = 0;
-	memset(buf, 0, sizeof(buf));
+	if (memset(buf, 0, sizeof(buf)) == NULL) {
+		quit_converter(fd);
+	}
 	clockStart = 0;
 	clockEnd = 0;
-	glyph = malloc(sizeof(Glyph)+1); 
+	glyph = malloc(sizeof(Glyph)+1);
+	if (glyph == NULL) {
+		quit_converter(fd);
+	}
 	sparky = 0;
 	totalGlyphs = 1;
 	totalSurrogates = 0;
 	totalAsciis = 0;
 	cpuStart = malloc(sizeof(struct tms)+1);
+	if (cpuStart == NULL) {
+		free(glyph);
+		quit_converter(fd);
+	}
 	cpuEnd = malloc(sizeof(struct tms)+1);
+	if (cpuEnd == NULL) {
+		free(glyph);
+		free(cpuStart);
+		quit_converter(fd);
+	}
 	readRealTime = 0;
 	readUserTime = 0;
 	readSysTime = 0;
@@ -86,7 +106,7 @@ int main(int argc, char** argv)
 			(rv = read(fd, &buf[1], 1)) == 1){
 		void* memset_return; 
 		clockEnd = times(cpuEnd);
-		readRealTime = (double)(clockEnd - clockStart);
+		readRealTime = ((double)(clockEnd - clockStart) / (double)tps);
 		readUserTime = ((double)(cpuEnd->tms_utime - cpuStart->tms_utime) / (double)tps);
 		readSysTime = ((double)(cpuEnd->tms_stime - cpuStart->tms_stime) / (double)(tps));
 		
@@ -109,12 +129,16 @@ int main(int argc, char** argv)
 				}
 				else {
 					free(glyph);
+					free(cpuStart);
+					free(cpuEnd);
 					print_help();
 					quit_converter(fd);
 				}
 			}
 			else {
 				free(glyph); 
+				free(cpuStart);
+				free(cpuEnd);
 				print_help();
 				quit_converter(fd);
 			}
@@ -127,12 +151,16 @@ int main(int argc, char** argv)
 					sparky = 1;
 				}
 				else {
-					free(glyph); 
+					free(glyph);
+					free(cpuStart);
+					free(cpuEnd);
 					quit_converter(fd);
 				}
 			}
 			else {
-				free(glyph); 
+				free(glyph);
+				free(cpuStart);
+				free(cpuEnd);
 				quit_converter(fd);
 			}
 			
@@ -140,12 +168,18 @@ int main(int argc, char** argv)
 		else {
 			/*file has no BOM*/
 			free(glyph); 
-			fprintf(stderr, "File has no BOM.\n");
+			free(cpuStart);
+			free(cpuEnd);
 			quit_converter(fd); 
 		}
 		
 		/*Deal with output file if there is one.*/
-		memset(buf, 0, sizeof(buf));
+		if(memset(buf, 0, sizeof(buf)) == NULL) {
+			free(glyph);
+			free(cpuStart);
+			free(cpuEnd);
+			quit_converter(fd);
+		}
 		od = open(outputName, O_RDWR | O_APPEND);
 		if (od != -1) {
 			/* Look for BOM*/
@@ -198,9 +232,9 @@ int main(int argc, char** argv)
 			/* Now write the BOM out*/
 			memset_return = memset(glyph, 0, sizeof(Glyph)+1);
 			if(memset_return == NULL){
+				free(glyph);
 				free(cpuStart);
 				free(cpuEnd);
-				print_help();
 				quit_converter(fd);
 			}
 			if (conversion == LITTLE) {
@@ -219,20 +253,25 @@ int main(int argc, char** argv)
 		memset_return = memset(glyph, 0, sizeof(Glyph)+1);
 		/* Memory write failed, recover from it: */
 		if(memset_return == NULL){
+			free(glyph);
 			free(cpuStart);
 			free(cpuEnd);
-			print_help();
 			quit_converter(fd);
 		}
 	}
 
 	/* Now deal with the rest of the bytes.*/
 	clockStart = times(cpuStart);
-	memset(buf, 0, sizeof(buf));
+	if (memset(buf, 0, sizeof(buf)) == NULL) {
+		free(glyph);
+		free(cpuStart);
+		free(cpuEnd);
+		quit_converter(fd);
+	}
 	while((rv = read(fd, &buf[0], 1)) == 1){
 		void* memset_return;
 		clockEnd = times(cpuEnd);
-		readRealTime = readRealTime + (double)(clockEnd - clockStart);
+		readRealTime = readRealTime + ((double)(clockEnd - clockStart) / (double)tps);
 		readUserTime = readUserTime + ((double)(cpuEnd->tms_utime - cpuStart->tms_utime) / (double)tps);
 		readSysTime = readSysTime + ((double)(cpuEnd->tms_stime - cpuStart->tms_stime) / (double)tps);
 
@@ -241,27 +280,32 @@ int main(int argc, char** argv)
 		memset_return = memset(glyph, 0, sizeof(Glyph)+1);
 	        /* Memory write failed, recover from it: */
 	        if(memset_return == NULL){
+	        	free(glyph);
+	        	free(cpuStart);
+				free(cpuEnd);
 		        quit_converter(fd);
 	        }
 	    clockStart = times(cpuStart);
 	    memset(buf, 0, sizeof(buf));
 	}
 	clockEnd = times(cpuEnd);
-	readRealTime = readRealTime + (double)(clockEnd - clockStart);
+	readRealTime = readRealTime + ((double)(clockEnd - clockStart) / (double)tps);
 	readUserTime = readUserTime + ((double)(cpuEnd->tms_utime - cpuStart->tms_utime) / (double)tps);
 	readSysTime = readSysTime + ((double)(cpuEnd->tms_stime - cpuStart->tms_stime) / (double)tps);
 	
 	free(cpuStart);
 	free(cpuEnd);
 	free(glyph);
-	
 	if (verbosity >= 1) {
 		char absoluteFilePath[400];
 		fileData = malloc(sizeof(struct stat)+1);
 		if (fileData == NULL){
 			quit_converter(fd);
 		}
-		memset((void*)fileData, 0, sizeof(struct stat)+1);
+		if (memset((void*)fileData, 0, sizeof(struct stat)+1) == NULL) {
+			free(fileData);
+			quit_converter(fd);
+		}
 		if (stat(filename, fileData) == 0) {
 			char fSize[100];
 			memset((char*)fSize, 0, sizeof(fSize));
@@ -276,7 +320,9 @@ int main(int argc, char** argv)
 			/*some error*/
 			quit_converter(fd);
 		}
-		memset((void*)absoluteFilePath, 0, sizeof(absoluteFilePath));
+		if (memset((void*)absoluteFilePath, 0, sizeof(absoluteFilePath)) == NULL) {
+			quit_converter(fd);
+		}
 		filePath = realpath(filename, absoluteFilePath);
 		if (filePath != NULL) {
 			write(STDERR_FILENO, "Input file path: ", (int)sizeof(char)*strlen("Input file path: "));
@@ -284,7 +330,6 @@ int main(int argc, char** argv)
 			write(STDERR_FILENO, "\n", (int)sizeof(char)*strlen("\n"));
 		}
 		else {
-			
 			quit_converter(fd);
 		}
 		if (source == BIG) {
@@ -304,10 +349,12 @@ int main(int argc, char** argv)
 		}
 		hostname = malloc(100);
 		if (hostname == NULL){
-			printf("Memory error.\n");
 			quit_converter(fd);
 		}
-		memset((void*)hostname, 0, 100);
+		if(memset((void*)hostname, 0, 100) == NULL){
+			free(hostname);
+			quit_converter(fd);
+		}
 		if (gethostname(hostname, 100) == 0) {
 			write(STDERR_FILENO, "Hostmachine: ", (int)sizeof(char)*strlen("Hostmachine: "));
 			write(STDERR_FILENO, hostname, 100);
@@ -316,11 +363,10 @@ int main(int argc, char** argv)
 		}
 		else {
 			free(hostname);
-			/*some error*/
+			quit_converter(fd);
 		}
 		systemName = malloc(sizeof(struct utsname)+1);
 		if (systemName == NULL){
-			printf("Memory error.\n");
 			quit_converter(fd);
 		}
 		memset((void*)systemName, 0, sizeof(struct utsname)+1);
@@ -332,31 +378,38 @@ int main(int argc, char** argv)
 		} 
 		else {
 			free(systemName);
-			/*some error*/
+			quit_converter(fd);
 		}
 		if (verbosity == 2) {
 			int surrogatePercentage;
 			int asciiPercentage;
 			char fSize[100];
-			memset((char*)fSize, 0, sizeof(fSize));
+			if (memset((char*)fSize, 0, sizeof(fSize)) == NULL) {
+				quit_converter(fd);
+			}
 			
 			surrogatePercentage = (totalSurrogates*1.0)/(totalGlyphs*1.0) * 1000;
 			asciiPercentage = (totalAsciis*1.0)/(totalGlyphs*1.0) * 1000;
-			sprintf(fSize, "Reading: real=%.1f, user=%.1f, sys=%.1f\n", readRealTime, readUserTime, readSysTime);
+			sprintf(fSize, "Reading: real=%f, user=%f, sys=%f\n", readRealTime, readUserTime, readSysTime);
 			write(STDERR_FILENO, fSize, sizeof(fSize));
 
-			memset((char*)fSize, 0, sizeof(fSize));
-			sprintf(fSize, "Converting: real=%.1f, user=%.1f, sys=%.1f\n", convertRealTime, convertUserTime, convertSysTime);
+			if (memset((char*)fSize, 0, sizeof(fSize)) == NULL) {
+				quit_converter(fd);
+			}
+			sprintf(fSize, "Converting: real=%f, user=%f, sys=%f\n", convertRealTime, convertUserTime, convertSysTime);
 			write(STDERR_FILENO, fSize, sizeof(fSize));
 			
-			memset((char*)fSize, 0, sizeof(fSize));
-			sprintf(fSize, "Writing: real=%.1f, user=%.1f, sys=%.1f\n", writeRealTime, writeUserTime, writeSysTime);
+			if (memset((char*)fSize, 0, sizeof(fSize)) == NULL) {
+				quit_converter(fd);
+			}
+			sprintf(fSize, "Writing: real=%f, user=%f, sys=%f\n", writeRealTime, writeUserTime, writeSysTime);
 			write(STDERR_FILENO, fSize, sizeof(fSize));
 
-			memset((char*)fSize, 0, sizeof(fSize));
+			if (memset((char*)fSize, 0, sizeof(fSize)) == NULL) {
+				quit_converter(fd);
+			}
 			if (asciiPercentage % 10 >= 5) {
 				sprintf(fSize, "%d", (asciiPercentage/10 + 1));
-				printf("Total Ascii: %d\n", totalAsciis);
 				write(STDERR_FILENO, "ASCII: ", (int)sizeof(char)*strlen("ASCII: "));
 				write(STDERR_FILENO, fSize, sizeof(fSize));
 				write(STDERR_FILENO, "%\n", (int)sizeof(char)*strlen("%\n"));
@@ -367,7 +420,9 @@ int main(int argc, char** argv)
 				write(STDERR_FILENO, fSize, sizeof(fSize));
 				write(STDERR_FILENO, "%\n", (int)sizeof(char)*strlen("%\n"));
 			}
-			memset((char*)fSize, 0, sizeof(fSize));
+			if (memset((char*)fSize, 0, sizeof(fSize)) == NULL) {
+				quit_converter(fd);
+			}
 			if (surrogatePercentage % 10 >= 5) {
 				sprintf(fSize, "%d", (int)(surrogatePercentage/10 + 1));
 				write(STDERR_FILENO, "Surrogates: ", (int)sizeof(char)*strlen("Surrogates: "));
@@ -380,7 +435,9 @@ int main(int argc, char** argv)
 				write(STDERR_FILENO, fSize, sizeof(fSize));
 				write(STDERR_FILENO, "%\n", (int)sizeof(char)*strlen("%\n"));
 			}
-			memset((char*)fSize, 0, sizeof(fSize));
+			if (memset((char*)fSize, 0, sizeof(fSize)) == NULL) {
+				quit_converter(fd);
+			}
 			sprintf(fSize, "%d", totalGlyphs);
 			write(STDERR_FILENO, "Glyphs: ", (int)sizeof(char)*strlen("Glyphs: "));
 			write(STDERR_FILENO, fSize, sizeof(fSize));
@@ -394,7 +451,7 @@ int main(int argc, char** argv)
 	close(STDIN_FILENO);
 	close(STDOUT_FILENO);
 	close(fd);
-	return 0;
+	return EXIT_SUCCESS;
 }
 
 Glyph* swap_endianness(Glyph* glyph)
@@ -413,7 +470,7 @@ Glyph* swap_endianness(Glyph* glyph)
 	glyph->end = conversion;
 
 	clockEnd = times(cpuEnd);
-	convertRealTime = convertRealTime + (double)(clockEnd - clockStart);
+	convertRealTime = convertRealTime + ((double)(clockEnd - clockStart) / (double)tps);
 	convertUserTime = convertUserTime + ((double)(cpuEnd->tms_utime - cpuStart->tms_utime) / (double)tps);
 	convertSysTime = convertSysTime + ((double)(cpuEnd->tms_stime - cpuStart->tms_stime) / (double)tps);
 
@@ -527,7 +584,7 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 		}
 		glyph->end = end;
 		clockEnd = times(cpuEnd);
-		readRealTime = readRealTime + (double)(clockEnd - clockStart);
+		readRealTime = readRealTime + ((double)(clockEnd - clockStart) / (double)tps);
 		readUserTime = readUserTime + ((double)(cpuEnd->tms_utime - cpuStart->tms_utime) / (double)tps);
 		readSysTime = readSysTime + ((double)(cpuEnd->tms_stime - cpuStart->tms_stime) / (double)tps);
 		return convert(glyph, conversion);
@@ -600,7 +657,7 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 		}
 		glyph->end = end;
 		clockEnd = times(cpuEnd);
-		readRealTime = readRealTime + (double)(clockEnd - clockStart);
+		readRealTime = readRealTime + ((double)(clockEnd - clockStart) / (double)tps);
 		readUserTime = readUserTime + ((double)(cpuEnd->tms_utime - cpuStart->tms_utime) / (double)tps);
 		readSysTime = readSysTime + ((double)(cpuEnd->tms_stime - cpuStart->tms_stime) / (double)tps);
 		if (conversion != end) {
@@ -635,7 +692,7 @@ void write_glyph(Glyph* glyph)
 		} else {
 			fwrite(glyph->bytes, sizeof(glyph->bytes[0]), NON_SURROGATE_SIZE, wd);		}
 			clockEnd = times(cpuEnd);
-			writeRealTime = writeRealTime + (double)(clockEnd - clockStart);
+			writeRealTime = writeRealTime + ((double)(clockEnd - clockStart) / (double)tps);
 			writeUserTime = writeUserTime + ((double)(cpuEnd->tms_utime - cpuStart->tms_utime) / (double)tps);
 			writeSysTime = writeSysTime + ((double)(cpuEnd->tms_stime - cpuStart->tms_stime) / (double)tps);
 			fclose(wd);
@@ -648,7 +705,7 @@ void write_glyph(Glyph* glyph)
 			write(STDOUT_FILENO, glyph->bytes, NON_SURROGATE_SIZE);
 		}
 		clockEnd = times(cpuEnd);
-		writeRealTime = writeRealTime + (double)(clockEnd - clockStart);
+		writeRealTime = writeRealTime + ((double)(clockEnd - clockStart) / (double)tps);
 		writeUserTime = writeUserTime + ((double)(cpuEnd->tms_utime - cpuStart->tms_utime) / (double)tps);
 		writeSysTime = writeSysTime + ((double)(cpuEnd->tms_stime - cpuStart->tms_stime) / (double)tps);
 	}	
@@ -660,7 +717,7 @@ void parse_args(int argc, char** argv)
 	char* endian_convert;
 	static struct option long_options[] = {
 		{"help", no_argument, 0, 'y'},
-		{"UTF", required_argument, 0, 'z'},
+		{"UTF=", required_argument, 0, 'z'},
 		{0, 0, 0, 0}
 	};
 	endian_convert = NULL;
@@ -689,7 +746,6 @@ void parse_args(int argc, char** argv)
 		}
 	}
 	if (h > 0) {
-		fprintf(stderr, "h\n");
 		print_help();
 		free(filename);
 		free(outputName);
@@ -697,7 +753,7 @@ void parse_args(int argc, char** argv)
 		close(STDIN_FILENO);
 		close(STDOUT_FILENO);
 		close(NO_FD);
-		exit(0);
+		exit(EXIT_SUCCESS);
 	}
 	optind = 1;
 	while((c = getopt_long(argc, argv, "hvu:", long_options, &option_index)) != -1){
@@ -820,6 +876,7 @@ Glyph* convert(Glyph* glyph, endianness end) {
 		msb = (bits >> 10) + 0xD800;
 		lsb = (bits & 0x3FF) + 0xDC00;
 		glyph->surrogate = true;
+		totalSurrogates = totalSurrogates + 1;
 		if (end == LITTLE) {
 			glyph->bytes[0] = msb & 0xFF;
 			glyph->bytes[1] = msb >> 8;
@@ -846,7 +903,7 @@ Glyph* convert(Glyph* glyph, endianness end) {
 	}
 	glyph->end = end;
 	clockEnd = times(cpuEnd);
-	convertRealTime = convertRealTime + (double)(clockEnd - clockStart);
+	convertRealTime = convertRealTime + ((double)(clockEnd - clockStart) / (double)tps);
 	convertUserTime = convertUserTime + ((double)(cpuEnd->tms_utime - cpuStart->tms_utime) / (double)tps);
 	convertSysTime = convertSysTime + ((double)(cpuEnd->tms_stime - cpuStart->tms_stime) / (double)tps);
 
