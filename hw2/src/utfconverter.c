@@ -15,29 +15,21 @@ int tps;
 double readRealTime;
 double readUserTime;
 double readSysTime;
-clock_t readRealStart;
-clock_t readRealEnd;
-struct tms* readCpuStart;
-struct tms* readCpuEnd;
+clock_t clockStart;
+clock_t clockEnd;
+struct tms* cpuStart;
+struct tms* cpuEnd;
 double writeRealTime;
 double writeUserTime;
 double writeSysTime;
-clock_t writeRealStart;
-clock_t writeRealEnd;
-struct tms* writeCpuStart;
-struct tms* writeCpuEnd;
 double convertRealTime;
 double convertUserTime;
 double convertSysTime;
-clock_t convertRealStart;
-clock_t convertRealEnd;
-struct tms* convertCpuStart;
-struct tms* convertCpuEnd;
 int main(int argc, char** argv)
 {
 	/*
 		Potential ERRORS?
-		-v everywhere still gotta work
+		
 	*/
 	int fd;
 	int rv;
@@ -54,7 +46,6 @@ int main(int argc, char** argv)
 	filename = malloc(1);
 	outputName = malloc(1);
 	parse_args(argc, argv);
-
 	fd = open(filename, O_RDONLY);
 	if (fd == -1) {
 		printf("File does not exist.\n");
@@ -63,39 +54,37 @@ int main(int argc, char** argv)
 	numBytes = 0;
 	rv = 0; 
 	memset(buf, 0, sizeof(buf));
+	clockStart = 0;
+	clockEnd = 0;
 	glyph = malloc(sizeof(Glyph)+1); 
 	sparky = 0;
-	totalGlyphs = 0;
+	totalGlyphs = 1;
 	totalSurrogates = 0;
 	totalAsciis = 0;
+	cpuStart = malloc(sizeof(struct tms)+1);
+	cpuEnd = malloc(sizeof(struct tms)+1);
 	readRealTime = 0;
 	readUserTime = 0;
 	readSysTime = 0;
-	readCpuStart = malloc(sizeof(struct tms)+1);
-	readCpuEnd = malloc(sizeof(struct tms)+1);
 	writeRealTime = 0;
 	writeUserTime = 0;
 	writeSysTime = 0;
-	writeCpuStart = malloc(sizeof(struct tms)+1);
-	writeCpuEnd = malloc(sizeof(struct tms)+1);
 	convertRealTime = 0;
 	convertUserTime = 0;
 	convertSysTime = 0;
-	convertCpuStart = malloc(sizeof(struct tms)+1);
-	convertCpuEnd = malloc(sizeof(struct tms)+1);
 	tps = sysconf(_SC_CLK_TCK); 
 	/*Handle BOM bytes for UTF16 specially. 
     Read our values into the first and second elements.*/
-	readRealStart = times(readCpuStart);
+
+	clockStart = times(cpuStart);
 	if((rv = read(fd, &buf[0], 1)) == 1 && 
 			(rv = read(fd, &buf[1], 1)) == 1){
 		void* memset_return; 
-		readRealEnd = times(readCpuEnd);
-		readRealTime = (double)(readRealEnd - readRealStart);
-		readUserTime = ((double)(readCpuEnd->tms_utime - readCpuStart->tms_utime) / (double)tps);
-		readSysTime = ((double)(readCpuEnd->tms_stime - readCpuStart->tms_stime) / (double)(tps));
+		clockEnd = times(cpuEnd);
+		readRealTime = (double)(clockEnd - clockStart);
+		readUserTime = ((double)(cpuEnd->tms_utime - cpuStart->tms_utime) / (double)tps);
+		readSysTime = ((double)(cpuEnd->tms_stime - cpuStart->tms_stime) / (double)(tps));
 		
-
 		if(buf[0] == 0xff && buf[1] == 0xfe){
 			/*file is little endian*/
 			source = LITTLE; 
@@ -114,24 +103,14 @@ int main(int argc, char** argv)
 					source = EIGHT;
 				}
 				else {
-					free(glyph); 
-					free(readCpuStart);
-					free(readCpuEnd);
-					free(writeCpuStart);
-					free(writeCpuEnd);
-					free(convertCpuStart);
-					free(convertCpuEnd);
+					free(glyph);
+					print_help();
 					quit_converter(fd);
 				}
 			}
 			else {
 				free(glyph); 
-				free(readCpuStart);
-				free(readCpuEnd);
-				free(writeCpuStart);
-				free(writeCpuEnd);
-				free(convertCpuStart);
-				free(convertCpuEnd);
+				print_help();
 				quit_converter(fd);
 			}
 			
@@ -144,23 +123,11 @@ int main(int argc, char** argv)
 				}
 				else {
 					free(glyph); 
-					free(readCpuStart);
-					free(readCpuEnd);
-					free(writeCpuStart);
-					free(writeCpuEnd);
-					free(convertCpuStart);
-					free(convertCpuEnd);
 					quit_converter(fd);
 				}
 			}
 			else {
 				free(glyph); 
-				free(readCpuStart);
-				free(readCpuEnd);
-				free(writeCpuStart);
-				free(writeCpuEnd);
-				free(convertCpuStart);
-				free(convertCpuEnd);
 				quit_converter(fd);
 			}
 			
@@ -168,24 +135,12 @@ int main(int argc, char** argv)
 		else {
 			/*file has no BOM*/
 			free(glyph); 
-			free(readCpuStart);
-			free(readCpuEnd);
-			free(writeCpuStart);
-			free(writeCpuEnd);
-			free(convertCpuStart);
-			free(convertCpuEnd);
 			fprintf(stderr, "File has no BOM.\n");
 			quit_converter(fd); 
 		}
 		memset_return = memset(glyph, 0, sizeof(Glyph)+1);
 		/* Memory write failed, recover from it: */
 		if(memset_return == NULL){
-			free(readCpuStart);
-			free(readCpuEnd);
-			free(writeCpuStart);
-			free(writeCpuEnd);
-			free(convertCpuStart);
-			free(convertCpuEnd);
 			quit_converter(fd);
 		}
 		if (conversion == LITTLE) {
@@ -203,56 +158,36 @@ int main(int argc, char** argv)
 		memset_return = memset(glyph, 0, sizeof(Glyph)+1);
 		/* Memory write failed, recover from it: */
 		if(memset_return == NULL){
-			free(readCpuStart);
-			free(readCpuEnd);
-			free(writeCpuStart);
-			free(writeCpuEnd);
-			free(convertCpuStart);
-			free(convertCpuEnd);
 			quit_converter(fd);
 		}
 	}
 
 	/* Now deal with the rest of the bytes.*/
-	readRealStart = times(readCpuStart);
+	clockStart = times(cpuStart);
 	while((rv = read(fd, &buf[0], 1)) == 1 &&  
 			(rv = read(fd, &buf[1], 1)) == 1){
 		void* memset_return;
-		readRealEnd = times(readCpuEnd);
-		readRealTime = readRealTime + (double)(readRealEnd - readRealStart);
-		readUserTime = readUserTime + ((double)(readCpuEnd->tms_utime - readCpuStart->tms_utime) / (double)tps);
-		readSysTime = readSysTime + ((double)(readCpuEnd->tms_stime - readCpuStart->tms_stime) / (double)tps);
+		clockEnd = times(cpuEnd);
+		readRealTime = readRealTime + (double)(clockEnd - clockStart);
+		readUserTime = readUserTime + ((double)(cpuEnd->tms_utime - cpuStart->tms_utime) / (double)tps);
+		readSysTime = readSysTime + ((double)(cpuEnd->tms_stime - cpuStart->tms_stime) / (double)tps);
 
 		write_glyph(fill_glyph(glyph, buf, source, &fd));
 		totalGlyphs = totalGlyphs + 1;
 		memset_return = memset(glyph, 0, sizeof(Glyph)+1);
 	        /* Memory write failed, recover from it: */
 	        if(memset_return == NULL){
-		        /* tweak write permission on heap memory. */
-		        /*asm("movl $8, %esi\n\t"
-		            "movl $.LC0, %edi\n\t"
-		            "movl $0, %eax");*/
-		        /* Now make the request again. */
-		        free(readCpuStart);
-				free(readCpuEnd);
-				free(writeCpuStart);
-				free(writeCpuEnd);
-				free(convertCpuStart);
-				free(convertCpuEnd);
 		        quit_converter(fd);
 	        }
-	    readRealStart = times(readCpuStart);
+	    clockStart = times(cpuStart);
 	}
-	readRealEnd = times(readCpuEnd);
-	readRealTime = readRealTime + (double)(readRealEnd - readRealStart);
-	readUserTime = readUserTime + ((double)(readCpuEnd->tms_utime - readCpuStart->tms_utime) / (double)tps);
-	readSysTime = readSysTime + ((double)(readCpuEnd->tms_stime - readCpuStart->tms_stime) / (double)tps);
-	free(readCpuEnd);
-	free(readCpuStart);
-	free(writeCpuStart);
-	free(writeCpuEnd);
-	free(convertCpuStart);
-	free(convertCpuEnd);
+	clockEnd = times(cpuEnd);
+	readRealTime = readRealTime + (double)(clockEnd - clockStart);
+	readUserTime = readUserTime + ((double)(cpuEnd->tms_utime - cpuStart->tms_utime) / (double)tps);
+	readSysTime = readSysTime + ((double)(cpuEnd->tms_stime - cpuStart->tms_stime) / (double)tps);
+	
+	free(cpuStart);
+	free(cpuEnd);
 	if (verbosity >= 1) {
 		fileData = malloc(sizeof(struct stat)+1);
 		if (fileData == NULL){
@@ -355,7 +290,7 @@ int main(int argc, char** argv)
 Glyph* swap_endianness(Glyph* glyph)
 {
 	unsigned int temp;
-	convertRealStart = times(convertCpuStart);
+	clockStart = times(cpuStart);
 	/* Use XOR to be more efficient with how we swap values. */
 	temp = glyph->bytes[0] ^ glyph->bytes[1];
 	glyph->bytes[0] = (glyph->bytes[0] & 0) ^ glyph->bytes[1];
@@ -367,10 +302,10 @@ Glyph* swap_endianness(Glyph* glyph)
 	}
 	glyph->end = conversion;
 
-	convertRealEnd = times(convertCpuEnd);
-	convertRealTime = convertRealTime + (double)(convertRealEnd - convertRealStart);
-	convertUserTime = convertUserTime + ((double)(convertCpuEnd->tms_utime - convertCpuStart->tms_utime) / (double)tps);
-	convertSysTime = convertSysTime + ((double)(convertCpuEnd->tms_stime - convertCpuStart->tms_stime) / (double)tps);
+	clockEnd = times(cpuEnd);
+	convertRealTime = convertRealTime + (double)(clockEnd - clockStart);
+	convertUserTime = convertUserTime + ((double)(cpuEnd->tms_utime - cpuStart->tms_utime) / (double)tps);
+	convertSysTime = convertSysTime + ((double)(cpuEnd->tms_stime - cpuStart->tms_stime) / (double)tps);
 
 	return glyph;
 }
@@ -378,7 +313,7 @@ Glyph* swap_endianness(Glyph* glyph)
 Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 {
 	unsigned int bits;
-	readRealStart = times(readCpuStart);
+	clockStart = times(cpuStart);
 	if (sparky == 1) {
 			data[0] = data[0] >> 24;
 			data[1] = data[1] >> 24;
@@ -444,30 +379,25 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 		}
 		else {/*ERROR UNKNOWN ENCODING!*/
 			print_help();
-			free(readCpuStart);
-			free(readCpuEnd);
-			free(writeCpuStart);
-			free(writeCpuEnd);
-			free(convertCpuStart);
-			free(convertCpuEnd);
+			
+			
 		    quit_converter(*fd);
 		}
 		if (bits > 0x1FFFFF) {
 			/*Outside of code point range*/
 			print_help();
-			free(readCpuStart);
-			free(readCpuEnd);
-			free(writeCpuStart);
-			free(writeCpuEnd);
-			free(convertCpuStart);
-			free(convertCpuEnd);
+			
+			
 		    quit_converter(*fd);
 		}
+		if (bits <= 0x007F) {
+			totalAsciis = totalAsciis + 1;
+		}
 		glyph->end = end;
-		readRealEnd = times(readCpuEnd);
-		readRealTime = readRealTime + (double)(readRealEnd - readRealStart);
-		readUserTime = readUserTime + ((double)(readCpuEnd->tms_utime - readCpuStart->tms_utime) / (double)tps);
-		readSysTime = readSysTime + ((double)(readCpuEnd->tms_stime - readCpuStart->tms_stime) / (double)tps);
+		clockEnd = times(cpuEnd);
+		readRealTime = readRealTime + (double)(clockEnd - clockStart);
+		readUserTime = readUserTime + ((double)(cpuEnd->tms_utime - cpuStart->tms_utime) / (double)tps);
+		readSysTime = readSysTime + ((double)(cpuEnd->tms_stime - cpuStart->tms_stime) / (double)tps);
 		return convert(glyph, conversion);
 	}
 	else { /*UTF-16 ENCODING*/
@@ -503,9 +433,11 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 				} 
 				if(bits >= 0xDC00 && bits <= 0xDFFF){ /*Check low surrogate pair.*/ 
 	 				glyph->surrogate = true;
+	 				totalSurrogates = totalSurrogates + 1;
 	 			} else {
 	 				lseek(*fd, -2, SEEK_CUR);
 	 				glyph->surrogate = false; 
+	 				/*Return an error for invalid data*/
 	 			}
 	 		}
 	 	}
@@ -521,10 +453,10 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 			glyph->bytes[3] = data[1];
 		}
 		glyph->end = end;
-		readRealEnd = times(readCpuEnd);
-		readRealTime = readRealTime + (double)(readRealEnd - readRealStart);
-		readUserTime = readUserTime + ((double)(readCpuEnd->tms_utime - readCpuStart->tms_utime) / (double)tps);
-		readSysTime = readSysTime + ((double)(readCpuEnd->tms_stime - readCpuStart->tms_stime) / (double)tps);
+		clockEnd = times(cpuEnd);
+		readRealTime = readRealTime + (double)(clockEnd - clockStart);
+		readUserTime = readUserTime + ((double)(cpuEnd->tms_utime - cpuStart->tms_utime) / (double)tps);
+		readSysTime = readSysTime + ((double)(cpuEnd->tms_stime - cpuStart->tms_stime) / (double)tps);
 		if (conversion != end) {
 			return swap_endianness(glyph);
 		}
@@ -537,30 +469,28 @@ void write_glyph(Glyph* glyph)
 	FILE* wd;
 	wd = fopen(outputName, "a");
 	if (wd != NULL) {
-		writeRealStart = times(writeCpuStart);
+		clockStart = times(cpuStart);
 		if(glyph->surrogate){
 			fwrite(glyph->bytes, sizeof(glyph->bytes[0]), SURROGATE_SIZE, wd);
-			totalSurrogates = totalSurrogates + 1;
 		} else {
 			fwrite(glyph->bytes, sizeof(glyph->bytes[0]), NON_SURROGATE_SIZE, wd);		}
-			writeRealEnd = times(writeCpuEnd);
-			writeRealTime = writeRealTime + (double)(writeRealEnd - writeRealStart);
-			writeUserTime = writeUserTime + ((double)(writeCpuEnd->tms_utime - writeCpuStart->tms_utime) / (double)tps);
-			writeSysTime = writeSysTime + ((double)(writeCpuEnd->tms_stime - writeCpuStart->tms_stime) / (double)tps);
+			clockEnd = times(cpuEnd);
+			writeRealTime = writeRealTime + (double)(clockEnd - clockStart);
+			writeUserTime = writeUserTime + ((double)(cpuEnd->tms_utime - cpuStart->tms_utime) / (double)tps);
+			writeSysTime = writeSysTime + ((double)(cpuEnd->tms_stime - cpuStart->tms_stime) / (double)tps);
 			fclose(wd);
 	}
 	else {
-		writeRealStart = times(writeCpuStart);
+		clockStart = times(cpuStart);
 		if(glyph->surrogate){
 			write(STDOUT_FILENO, glyph->bytes, SURROGATE_SIZE);
-			totalSurrogates = totalSurrogates + 1;
 		} else {
 			write(STDOUT_FILENO, glyph->bytes, NON_SURROGATE_SIZE);
 		}
-		writeRealEnd = times(writeCpuEnd);
-		writeRealTime = writeRealTime + (double)(writeRealEnd - writeRealStart);
-		writeUserTime = writeUserTime + ((double)(writeCpuEnd->tms_utime - writeCpuStart->tms_utime) / (double)tps);
-		writeSysTime = writeSysTime + ((double)(writeCpuEnd->tms_stime - writeCpuStart->tms_stime) / (double)tps);
+		clockEnd = times(cpuEnd);
+		writeRealTime = writeRealTime + (double)(clockEnd - clockStart);
+		writeUserTime = writeUserTime + ((double)(cpuEnd->tms_utime - cpuStart->tms_utime) / (double)tps);
+		writeSysTime = writeSysTime + ((double)(cpuEnd->tms_stime - cpuStart->tms_stime) / (double)tps);
 	}	
 }
 
@@ -676,7 +606,7 @@ Glyph* convert(Glyph* glyph, endianness end) {
 	unsigned int msb;
 	unsigned int lsb;
 
-	convertRealStart = times(convertCpuStart);
+	clockStart = times(cpuStart);
 	bits = 0;
 
 	if (numBytes == 4) {
@@ -721,10 +651,10 @@ Glyph* convert(Glyph* glyph, endianness end) {
 		}
 	}
 	glyph->end = end;
-	convertRealEnd = times(convertCpuEnd);
-	convertRealTime = convertRealTime + (double)(convertRealEnd - convertRealStart);
-	convertUserTime = convertUserTime + ((double)(convertCpuEnd->tms_utime - convertCpuStart->tms_utime) / (double)tps);
-	convertSysTime = convertSysTime + ((double)(convertCpuEnd->tms_stime - convertCpuStart->tms_stime) / (double)tps);
+	clockEnd = times(cpuEnd);
+	convertRealTime = convertRealTime + (double)(clockEnd - clockStart);
+	convertUserTime = convertUserTime + ((double)(cpuEnd->tms_utime - cpuStart->tms_utime) / (double)tps);
+	convertSysTime = convertSysTime + ((double)(cpuEnd->tms_stime - cpuStart->tms_stime) / (double)tps);
 
 	return glyph;
 }
