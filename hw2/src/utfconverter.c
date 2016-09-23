@@ -195,7 +195,13 @@ int main(int argc, char** argv)
 			quit_converter(fd);
 		}
 		if (stat(filename, fileData) == 0) {
-			printf("Input file size: %ld kb\n", fileData->st_size);
+			/*char* stuffToWrite[] = {"Input file size:",
+			fileData->st_size,
+			"kb\n",
+			"\0"};*/
+			write(STDERR_FILENO, "Input file size:", (int)sizeof(char)*strlen("Input file size:"));
+			write(STDERR_FILENO, fileData->st_size, sizeof(fileData->st_size));
+			write(STDERR_FILENO, " kb\n\0", (int)sizeof(char)*strlen(" kb\n\0"));
 			free(fileData);
 		}
 		else {
