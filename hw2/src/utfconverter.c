@@ -188,6 +188,7 @@ int main(int argc, char** argv)
 	
 	free(cpuStart);
 	free(cpuEnd);
+	
 	if (verbosity >= 1) {
 		fileData = malloc(sizeof(struct stat)+1);
 		if (fileData == NULL){
@@ -195,12 +196,11 @@ int main(int argc, char** argv)
 			quit_converter(fd);
 		}
 		if (stat(filename, fileData) == 0) {
-			/*char* stuffToWrite[] = {"Input file size:",
-			fileData->st_size,
-			"kb\n",
-			"\0"};*/
-			write(STDERR_FILENO, "Input file size:", (int)sizeof(char)*strlen("Input file size:"));
-			write(STDERR_FILENO, fileData->st_size, sizeof(fileData->st_size));
+			char fSize[100];
+			memset((char*)fSize, 0, sizeof(fSize));
+			sprintf(fSize, "%jd", fileData->st_size);
+			write(STDERR_FILENO, "Input file size: ", (int)sizeof(char)*strlen("Input file size: "));
+			write(STDERR_FILENO, fSize, sizeof(fSize));
 			write(STDERR_FILENO, " kb\n\0", (int)sizeof(char)*strlen(" kb\n\0"));
 			free(fileData);
 		}
@@ -219,10 +219,13 @@ int main(int argc, char** argv)
 			quit_converter(fd);
 		}
 		if (source == BIG) {
-			printf("Input file encoding: UTF-16BE\n");
+			write(STDERR_FILENO, "Input file encoding: UTF-16BE\n", (int)sizeof(char)*strlen("Input file encoding: UTF-16BE\n"));
 		}
+		else if (source == EIGHT) {
+			write(STDERR_FILENO, "Input file encoding: UTF-8\n", (int)sizeof(char)*strlen("Input file encoding: UTF-8\n"));
+		}	
 		else {
-			printf("Input file encoding: UTF-16LE\n");
+			write(STDERR_FILENO, "Input file encoding: UTF-16LE\n", (int)sizeof(char)*strlen("Input file encoding: UTF-16LE\n"));
 		}
 		if (conversion == BIG) {
 			printf("Output encoding: UTF-16BE\n");
@@ -553,18 +556,28 @@ void parse_args(int argc, char** argv)
 				break;
 		}
 	}
+	if ((argc - optind) > 2) {
+		print_help();
+		quit_converter(NO_FD);
+	}
 	if (optind < argc) {
 		free(filename);
 		filename = strdup(argv[optind]);
 	}
 	else {
-		printf("No filename given.");
+		print_help();
 		quit_converter(NO_FD);
 	}
 	if ((optind+1) < argc) {
-		free(outputName);
-		outputName = strdup(argv[(optind+1)]);
+		if (strcmp(argv[optind], filename) != 0) {
+			outputName = strdup(argv[(optind+1)]);
+		}
+		else {
+			print_help();
+			quit_converter(NO_FD);
+		}
 	}
+	
 	if(endian_convert == NULL){
 		fprintf(stderr, "Converson mode not given.\n");
 		print_help();
