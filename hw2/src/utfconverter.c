@@ -25,6 +25,7 @@ double writeSysTime;
 double convertRealTime;
 double convertUserTime;
 double convertSysTime;
+int bomExist;
 int main(int argc, char** argv)
 {
 	/*
@@ -39,6 +40,7 @@ int main(int argc, char** argv)
 	struct utsname* systemName; 
 	struct stat* fileData;
 	char* filePath;
+	int od; /*For reading the output file if there is any.*/
 	/*scp -r -P 24 ../hw2 jijli@sparky.ic.stonybrook.edu:
 	*/
 	/*After calling parse_args(), filename and conversion should be set. */
@@ -48,11 +50,12 @@ int main(int argc, char** argv)
 	parse_args(argc, argv);
 	fd = open(filename, O_RDONLY);
 	if (fd == -1) {
-		printf("File does not exist.\n");
-		return EXIT_FAILURE;
+		print_help();
+		quit_converter(NO_FD);
 	}
 	numBytes = 0;
 	rv = 0; 
+	od = 0;
 	memset(buf, 0, sizeof(buf));
 	clockStart = 0;
 	clockEnd = 0;
@@ -72,7 +75,9 @@ int main(int argc, char** argv)
 	convertRealTime = 0;
 	convertUserTime = 0;
 	convertSysTime = 0;
-	tps = sysconf(_SC_CLK_TCK); 
+	tps = sysconf(_SC_CLK_TCK);
+	bomExist = 0;
+
 	/*Handle BOM bytes for UTF16 specially. 
     Read our values into the first and second elements.*/
 
@@ -138,34 +143,93 @@ int main(int argc, char** argv)
 			fprintf(stderr, "File has no BOM.\n");
 			quit_converter(fd); 
 		}
-		memset_return = memset(glyph, 0, sizeof(Glyph)+1);
-		/* Memory write failed, recover from it: */
-		if(memset_return == NULL){
-			quit_converter(fd);
-		}
-		if (conversion == LITTLE) {
-			glyph->surrogate = false;
-			glyph->bytes[0] = 0xff;
-			glyph->bytes[1] = 0xfe;
-			write_glyph(glyph);
+		
+		/*Deal with output file if there is one.*/
+		memset(buf, 0, sizeof(buf));
+		od = open(outputName, O_RDWR | O_APPEND);
+		if (od != -1) {
+			/* Look for BOM*/
+			if((rv = read(od, &buf[0], 1)) == 1 && 
+				(rv = read(od, &buf[1], 1)) == 1){
+				if (sparky == 1) {
+					buf[0] = buf[0] >> 24;
+					buf[1] = buf[1] >> 24;
+				}
+				if(buf[0] == 0xff && buf[1] == 0xfe && 
+					conversion == LITTLE){
+					bomExist = 1;
+				} else if(buf[0] == 0xfe && buf[1] == 0xff && 
+					conversion == BIG){
+					bomExist = 1;
+				}
+				else {
+					free(cpuStart);
+					free(cpuEnd);
+					print_help();
+					quit_converter(fd);
+				}
+			}
+			else {
+				if (bomExist == 0) {
+					memset_return = memset(glyph, 0, sizeof(Glyph)+1);
+					if(memset_return == NULL){
+						free(cpuStart);
+						free(cpuEnd);
+						print_help();
+						quit_converter(fd);
+					}
+					if (conversion == LITTLE) {
+						glyph->surrogate = false;
+						glyph->bytes[0] = 0xff;
+						glyph->bytes[1] = 0xfe;
+						write_glyph(glyph);
+					}
+					else {
+						glyph->surrogate = false;
+						glyph->bytes[0] = 0xfe;
+						glyph->bytes[1] = 0xff;
+						write_glyph(glyph);
+					}
+				}
+			}
+			close(od);
 		}
 		else {
-			glyph->surrogate = false;
-			glyph->bytes[0] = 0xfe;
-			glyph->bytes[1] = 0xff;
-			write_glyph(glyph);
+			/* Now write the BOM out*/
+			memset_return = memset(glyph, 0, sizeof(Glyph)+1);
+			if(memset_return == NULL){
+				free(cpuStart);
+				free(cpuEnd);
+				print_help();
+				quit_converter(fd);
+			}
+			if (conversion == LITTLE) {
+				glyph->surrogate = false;
+				glyph->bytes[0] = 0xff;
+				glyph->bytes[1] = 0xfe;
+				write_glyph(glyph);
+			}
+			else {
+				glyph->surrogate = false;
+				glyph->bytes[0] = 0xfe;
+				glyph->bytes[1] = 0xff;
+				write_glyph(glyph);
+			}
 		}
 		memset_return = memset(glyph, 0, sizeof(Glyph)+1);
 		/* Memory write failed, recover from it: */
 		if(memset_return == NULL){
+			free(cpuStart);
+			free(cpuEnd);
+			print_help();
 			quit_converter(fd);
 		}
 	}
 
 	/* Now deal with the rest of the bytes.*/
 	clockStart = times(cpuStart);
-	while((rv = read(fd, &buf[0], 1)) == 1 &&  
-			(rv = read(fd, &buf[1], 1)) == 1){
+	memset(buf, 0, sizeof(buf));
+	while((rv = read(fd, &buf[0], 1)) == 1){
 		void* memset_return;
 		clockEnd = times(cpuEnd);
 		readRealTime = readRealTime + (double)(clockEnd - clockStart);
@@ -180,6 +244,7 @@ int main(int argc, char** argv)
 		        quit_converter(fd);
 	        }
 	    clockStart = times(cpuStart);
+	    memset(buf, 0, sizeof(buf));
 	}
 	clockEnd = times(cpuEnd);
 	readRealTime = readRealTime + (double)(clockEnd - clockStart);
@@ -209,6 +274,7 @@ int main(int argc, char** argv)
 		else {
 			free(fileData);
 			/*some error*/
+			quit_converter(fd);
 		}
 		filePath = realpath(filename, NULL);
 		if (filePath != NULL) {
@@ -364,8 +430,21 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 	}
 	/*UTF-8 ENCODING*/
 	if (end == EIGHT) {
+		if (data[0] > 0x7F) {
+			if(read(*fd, &data[1], 1) == 1) {
+				if (sparky == 1) {
+					data[1] = data[1] >> 24;
+				}
+			}
+			else {/*corrupted file*/
+				free(cpuStart);
+				free(cpuEnd);
+				free(glyph);
+				print_help();
+				quit_converter(*fd);
+			}
+		}
 		if (data[0] <= 0x7F) {/*ONE BYTE*/
-			lseek(*fd, -1, SEEK_CUR);
 			bits = data[0];
 			glyph->bytes[0] = data[0];
 			numBytes = 1;
@@ -395,6 +474,11 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 				numBytes = 3;
 			}
 			else {
+				free(cpuStart);
+				free(cpuEnd);
+				free(glyph);
+				print_help();
+				quit_converter(*fd);
 				/*Corrupted File*/
 			}
 		}
@@ -418,20 +502,27 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 				numBytes = 4;
 			}
 			else {
+				free(cpuStart);
+				free(cpuEnd);
+				free(glyph);
+				print_help();
+				quit_converter(*fd);
 				/*Corrupted File*/
 			}
 		}
 		else {/*ERROR UNKNOWN ENCODING!*/
+			free(cpuStart);
+			free(cpuEnd);
+			free(glyph);
 			print_help();
-			
-			
 		    quit_converter(*fd);
 		}
 		if (bits > 0x1FFFFF) {
 			/*Outside of code point range*/
+			free(cpuStart);
+			free(cpuEnd);
+			free(glyph);
 			print_help();
-			
-			
 		    quit_converter(*fd);
 		}
 		if (bits <= 0x007F) {
@@ -445,6 +536,18 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 		return convert(glyph, conversion);
 	}
 	else { /*UTF-16 ENCODING*/
+		if(read(*fd, &data[1], 1) == 1) {
+			if (sparky == 1) {
+				data[1] = data[1] >> 24;
+			}
+		}
+		else {
+			free(cpuStart);
+			free(cpuEnd);
+			free(glyph);
+			print_help();
+		   	quit_converter(*fd);
+		}
 		glyph->bytes[0] = data[0];
 		glyph->bytes[1] = data[1];
 
@@ -479,9 +582,11 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 	 				glyph->surrogate = true;
 	 				totalSurrogates = totalSurrogates + 1;
 	 			} else {
-	 				lseek(*fd, -2, SEEK_CUR);
-	 				glyph->surrogate = false; 
-	 				/*Return an error for invalid data*/
+	 				free(cpuStart);
+					free(cpuEnd);
+					free(glyph);
+					print_help();
+		   			quit_converter(*fd);
 	 			}
 	 		}
 	 	}
@@ -514,6 +619,20 @@ void write_glyph(Glyph* glyph)
 	wd = fopen(outputName, "a");
 	if (wd != NULL) {
 		clockStart = times(cpuStart);
+		if (bomExist == 1) {
+			unsigned char tempBytes[2];
+			if (conversion == BIG) {
+				tempBytes[0] = '\0';
+				tempBytes[1] = '\n';
+				fwrite(tempBytes, sizeof(tempBytes[0]), 2, wd);
+			}
+			else {
+				tempBytes[0] = '\n';
+				tempBytes[1] = '\0';
+				fwrite(tempBytes, sizeof(tempBytes[0]), 2, wd);;
+			}
+			bomExist = 0;
+		}
 		if(glyph->surrogate){
 			fwrite(glyph->bytes, sizeof(glyph->bytes[0]), SURROGATE_SIZE, wd);
 		} else {
@@ -540,33 +659,58 @@ void write_glyph(Glyph* glyph)
 
 void parse_args(int argc, char** argv)
 {
-	int option_index, c;
+	int option_index, c, h;
 	char* endian_convert;
 	static struct option long_options[] = {
-		{"help", no_argument, 0, 'h'},
-		{"h", no_argument, 0, 'h'},
+		{"help", no_argument, 0, 'y'},
 		{"UTF", required_argument, 0, 'z'},
 		{0, 0, 0, 0}
 	};
 	endian_convert = NULL;
+	h = 0;
 
 	/* If getopt() returns with a valid (its working correctly) 
 	 * return code, then process the args! */
-	while((c = getopt_long(argc, argv, "vhu:", long_options, &option_index)) != -1){
+	while((c = getopt_long(argc, argv, "hvu:", long_options, &option_index)) != -1){
 		switch(c){ 
 			case 'h':
+				h = h+1;
+				break;
+			case 'y':
+				h = h+1;
+				break;
+			case 'u':
+				break;
+			case 'z':
+				break;
+			case 'v':
+				break;
+			default:
 				print_help();
-				free(filename);
-				free(outputName);
-				close(STDERR_FILENO);
-				close(STDIN_FILENO);
-				close(STDOUT_FILENO);
-				close(NO_FD);
-				exit(0);
+				quit_converter(NO_FD);
+				break;
+		}
+	}
+	if (h > 0) {
+		fprintf(stderr, "h\n");
+		print_help();
+		free(filename);
+		free(outputName);
+		close(STDERR_FILENO);
+		close(STDIN_FILENO);
+		close(STDOUT_FILENO);
+		close(NO_FD);
+		exit(0);
+	}
+	optind = 1;
+	while((c = getopt_long(argc, argv, "hvu:", long_options, &option_index)) != -1){
+		switch(c){ 
+			case 'h':
+				break;
+			case 'y':
 				break;
 			case 'u':
 				if ((strcmp(optarg, "16LE") != 0) && (strcmp(optarg, "16BE") != 0)) {
-					fprintf(stderr, "Invalid conversion mode.\n");
 					print_help();
 					quit_converter(NO_FD);
 				}
@@ -574,7 +718,6 @@ void parse_args(int argc, char** argv)
 				break;
 			case 'z':
 				if((strcmp(optarg, "") == 0)){ 
-					fprintf(stderr, "Converson mode not given.\n");
 					print_help();
 					quit_converter(NO_FD);
 				}
@@ -586,7 +729,7 @@ void parse_args(int argc, char** argv)
 				}
 				break;
 			default:
-				fprintf(stderr, "Unrecognized argument.\n");
+				print_help();
 				quit_converter(NO_FD);
 				break;
 		}
@@ -604,7 +747,7 @@ void parse_args(int argc, char** argv)
 		quit_converter(NO_FD);
 	}
 	if ((optind+1) < argc) {
-		if (strcmp(argv[optind], filename) != 0) {
+		if (strcmp(argv[(optind+1)], filename) != 0) {
 			outputName = strdup(argv[(optind+1)]);
 		}
 		else {
@@ -614,7 +757,6 @@ void parse_args(int argc, char** argv)
 	}
 	
 	if(endian_convert == NULL){
-		fprintf(stderr, "Converson mode not given.\n");
 		print_help();
 		quit_converter(NO_FD);
 	}
@@ -624,6 +766,7 @@ void parse_args(int argc, char** argv)
 	} else if(strcmp(endian_convert, "16BE") == 0){
 		conversion = BIG;
 	} else {
+		print_help();
 		quit_converter(NO_FD);
 	}
 }
