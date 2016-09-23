@@ -43,8 +43,8 @@ int main(int argc, char** argv)
 	*/
 	/*After calling parse_args(), filename and conversion should be set. */
 	verbosity = 0;
-	filename = malloc(1);
-	outputName = malloc(1);
+	filename = malloc(2);
+	outputName = malloc(2);
 	parse_args(argc, argv);
 	fd = open(filename, O_RDONLY);
 	if (fd == -1) {
@@ -188,6 +188,7 @@ int main(int argc, char** argv)
 	
 	free(cpuStart);
 	free(cpuEnd);
+	free(glyph);
 	
 	if (verbosity >= 1) {
 		fileData = malloc(sizeof(struct stat)+1);
@@ -195,13 +196,14 @@ int main(int argc, char** argv)
 			printf("Memory error.\n");
 			quit_converter(fd);
 		}
+		memset((void*)fileData, 0, sizeof(struct stat)+1);
 		if (stat(filename, fileData) == 0) {
 			char fSize[100];
 			memset((char*)fSize, 0, sizeof(fSize));
 			sprintf(fSize, "%jd", fileData->st_size);
 			write(STDERR_FILENO, "Input file size: ", (int)sizeof(char)*strlen("Input file size: "));
 			write(STDERR_FILENO, fSize, sizeof(fSize));
-			write(STDERR_FILENO, " kb\n\0", (int)sizeof(char)*strlen(" kb\n\0"));
+			write(STDERR_FILENO, " kb\n", (int)sizeof(char)*strlen(" kb\n"));
 			free(fileData);
 		}
 		else {
@@ -210,7 +212,9 @@ int main(int argc, char** argv)
 		}
 		filePath = realpath(filename, NULL);
 		if (filePath != NULL) {
-			printf("Input file path: %s\n", filePath);
+			write(STDERR_FILENO, "Input file path: ", (int)sizeof(char)*strlen("Input file path: "));
+			write(STDERR_FILENO, filePath, (int)sizeof(char)*strlen(filePath));
+			write(STDERR_FILENO, "\n", (int)sizeof(char)*strlen("\n"));
 			free(filePath);
 		}
 		else {
@@ -228,18 +232,21 @@ int main(int argc, char** argv)
 			write(STDERR_FILENO, "Input file encoding: UTF-16LE\n", (int)sizeof(char)*strlen("Input file encoding: UTF-16LE\n"));
 		}
 		if (conversion == BIG) {
-			printf("Output encoding: UTF-16BE\n");
+			write(STDERR_FILENO, "Output encoding: UTF-16BE\n", (int)sizeof(char)*strlen("Output encoding: UTF-16BE\n"));
 		}
 		else {
-			printf("Output encoding: UTF-16LE\n");
+			write(STDERR_FILENO, "Output encoding: UTF-16LE\n", (int)sizeof(char)*strlen("Output encoding: UTF-16LE\n"));
 		}
-		hostname = malloc(sizeof(char)+50);
+		hostname = malloc(sizeof(char)+56);
 		if (hostname == NULL){
 			printf("Memory error.\n");
 			quit_converter(fd);
 		}
-		if (gethostname(hostname, sizeof(hostname)+50) == 0) {
-			printf("Hostmachine: %s\n", hostname);
+		memset((void*)hostname, 0, sizeof(hostname)+56);
+		if (gethostname(hostname, sizeof(hostname)+56) == 0) {
+			write(STDERR_FILENO, "Hostmachine: ", (int)sizeof(char)*strlen("Hostmachine: "));
+			write(STDERR_FILENO, hostname, (int)sizeof(hostname)+56);
+			write(STDERR_FILENO, "\n", (int)sizeof(char)*strlen("\n"));
 			free(hostname);
 		}
 		else {
@@ -251,8 +258,11 @@ int main(int argc, char** argv)
 			printf("Memory error.\n");
 			quit_converter(fd);
 		}
+		memset((void*)systemName, 0, sizeof(struct utsname)+1);
 		if (uname(systemName) == 0) {
-			printf("Operating System: %s\n", systemName->sysname);
+			write(STDERR_FILENO, "Operating System: ", (int)sizeof(char)*strlen("Operating System: "));
+			write(STDERR_FILENO, systemName->sysname, (int)sizeof(char)*strlen(systemName->sysname));
+			write(STDERR_FILENO, "\n", (int)sizeof(char)*strlen("\n"));
 			free(systemName);
 		} 
 		else {
@@ -262,33 +272,58 @@ int main(int argc, char** argv)
 		if (verbosity == 2) {
 			int surrogatePercentage;
 			int asciiPercentage;
-
+			char fSize[100];
+			memset((char*)fSize, 0, sizeof(fSize));
+			
 			surrogatePercentage = (totalSurrogates*1.0)/(totalGlyphs*1.0) * 1000;
 			asciiPercentage = (totalAsciis*1.0)/(totalGlyphs*1.0) * 1000;
-			printf("Reading: real=%.1f, user=%.1f, sys=%.1f\n", readRealTime, readUserTime, readSysTime);
-			printf("Converting: real=%.1f, user=%.1f, sys=%.1f\n", convertRealTime, convertUserTime, convertSysTime);
-			printf("Writing: real=%.1f, user=%.1f, sys=%.1f\n", writeRealTime, writeUserTime, writeSysTime);
+			sprintf(fSize, "Reading: real=%.1f, user=%.1f, sys=%.1f\n", readRealTime, readUserTime, readSysTime);
+			write(STDERR_FILENO, fSize, sizeof(fSize));
+
+			memset((char*)fSize, 0, sizeof(fSize));
+			sprintf(fSize, "Converting: real=%.1f, user=%.1f, sys=%.1f\n", convertRealTime, convertUserTime, convertSysTime);
+			write(STDERR_FILENO, fSize, sizeof(fSize));
+			
+			memset((char*)fSize, 0, sizeof(fSize));
+			sprintf(fSize, "Writing: real=%.1f, user=%.1f, sys=%.1f\n", writeRealTime, writeUserTime, writeSysTime);
+			write(STDERR_FILENO, fSize, sizeof(fSize));
+
+			memset((char*)fSize, 0, sizeof(fSize));
 			if (asciiPercentage % 10 >= 5) {
-				printf("ASCII: %d%%\n", (asciiPercentage/10 + 1));
+				sprintf(fSize, "%d", (asciiPercentage/10 + 1));
+				write(STDERR_FILENO, "ASCII: ", (int)sizeof(char)*strlen("ASCII: "));
+				write(STDERR_FILENO, fSize, sizeof(fSize));
+				write(STDERR_FILENO, "%\n", (int)sizeof(char)*strlen("%\n"));
 			}
 			else {
-				printf("ASCII: %d%%\n", (asciiPercentage/10));
-
+				sprintf(fSize, "%d", (asciiPercentage/10));
+				write(STDERR_FILENO, "ASCII: ", (int)sizeof(char)*strlen("ASCII: "));
+				write(STDERR_FILENO, fSize, sizeof(fSize));
+				write(STDERR_FILENO, "%\n", (int)sizeof(char)*strlen("%\n"));
 			}
+			memset((char*)fSize, 0, sizeof(fSize));
 			if (surrogatePercentage % 10 >= 5) {
-				printf("Surrogates: %d%%\n", (int)(surrogatePercentage/10 + 1));
+				sprintf(fSize, "%d", (int)(surrogatePercentage/10 + 1));
+				write(STDERR_FILENO, "Surrogates: ", (int)sizeof(char)*strlen("Surrogates: "));
+				write(STDERR_FILENO, fSize, sizeof(fSize));
+				write(STDERR_FILENO, "%\n", (int)sizeof(char)*strlen("%\n"));
 			}
 			else {
-				printf("Surrogates: %d%%\n", (int)(surrogatePercentage/10));
-
+				sprintf(fSize, "%d", (int)(surrogatePercentage/10));
+				write(STDERR_FILENO, "Surrogates: ", (int)sizeof(char)*strlen("Surrogates: "));
+				write(STDERR_FILENO, fSize, sizeof(fSize));
+				write(STDERR_FILENO, "%\n", (int)sizeof(char)*strlen("%\n"));
 			}
-			printf("Glyphs: %d\n", totalGlyphs);
+			memset((char*)fSize, 0, sizeof(fSize));
+			sprintf(fSize, "%d", totalGlyphs);
+			write(STDERR_FILENO, "Glyphs: ", (int)sizeof(char)*strlen("Glyphs: "));
+			write(STDERR_FILENO, fSize, sizeof(fSize));
+			write(STDERR_FILENO, "\n", (int)sizeof(char)*strlen("\n"));
 		}
 	}
 
-	free(glyph);
-	free(filename);
 	free(outputName);
+	free(filename);
 	close(STDERR_FILENO);
 	close(STDIN_FILENO);
 	close(STDOUT_FILENO);
