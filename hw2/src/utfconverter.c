@@ -9,10 +9,7 @@ int verbosity;
 int totalGlyphs;
 int totalSurrogates;
 int totalAsciis;
-int filenamePos;
-int noMoreCheckingNextFlag;
-int vCounter;
-int oldOptind;
+int numBytes;
 /*Variables for the time counting*/
 int tps;
 double readRealTime;
@@ -56,10 +53,6 @@ int main(int argc, char** argv)
 	verbosity = 0;
 	filename = malloc(1);
 	outputName = malloc(1);
-	filenamePos = 0;
-	noMoreCheckingNextFlag = 0;
-	vCounter = -1;
-	oldOptind = 1;
 	parse_args(argc, argv);
 
 	fd = open(filename, O_RDONLY);
@@ -67,6 +60,7 @@ int main(int argc, char** argv)
 		printf("File does not exist.\n");
 		return EXIT_FAILURE;
 	}
+	numBytes = 0;
 	rv = 0; 
 	memset(buf, 0, sizeof(buf));
 	glyph = malloc(sizeof(Glyph)+1); 
@@ -395,6 +389,7 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 			lseek(*fd, -1, SEEK_CUR);
 			bits = data[0];
 			glyph->bytes[0] = data[0];
+			numBytes = 1;
 
 		} 
 		else if (data[0] >= 0xC0 && data[0] <= 0xDF) {/*TWO BYTES*/
@@ -403,6 +398,7 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 			glyph->bytes[0] = data[0];
 			glyph->bytes[1] = data[1];
 			bits = (data[0] << 6) + data[1];
+			numBytes = 2;
 		}
 		else if (data[0] >= 0xE0 && data[0] <= 0xEF) {/*THREE BYTES*/
 			data[0] = data[0] & 0xF;
@@ -417,6 +413,7 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 				data[0] = data[0] & 0x3F;
 				bits = bits + data[0];
 				glyph->bytes[2] = data[0];
+				numBytes = 3;
 			}
 			else {
 				/*Corrupted File*/
@@ -439,6 +436,7 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 				bits = bits + (data[0] << 6) + data[1];
 				glyph->bytes[2] = data[0];
 				glyph->bytes[3] = data[1];
+				numBytes = 4;
 			}
 			else {
 				/*Corrupted File*/
@@ -612,19 +610,11 @@ void parse_args(int argc, char** argv)
 				if (verbosity < 2) {
 					verbosity = verbosity + 1;
 				}
-				if (optind > filenamePos) {
-					if (optind > oldOptind) {
-						vCounter = vCounter + 1;
-					}
-				}
 				break;
 			default:
 				fprintf(stderr, "Unrecognized argument.\n");
 				quit_converter(NO_FD);
 				break;
-		}
-		if (optind > oldOptind) {
-			oldOptind = optind;
 		}
 	}
 	if (optind < argc) {
@@ -685,18 +675,10 @@ Glyph* convert(Glyph* glyph, endianness end) {
 	unsigned int bits;
 	unsigned int msb;
 	unsigned int lsb;
-	int i;
-	int numBytes;
 
 	convertRealStart = times(convertCpuStart);
 	bits = 0;
-	numBytes = 0;
-	for (i = 0; i < 4; i = i + 1) {
-		if (glyph->bytes[i] == 0) {
-			break;
-		}
-		numBytes = numBytes + 1;
-	}
+
 	if (numBytes == 4) {
 		bits = (glyph->bytes[0] << 18) + (glyph->bytes[1] << 12) + (glyph->bytes[2] << 6) + glyph->bytes[3];
 	}
