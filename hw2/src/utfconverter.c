@@ -2,6 +2,7 @@
 
 char* filename;
 char* outputName;
+char* filePath;
 endianness source;
 endianness conversion;
 int sparky;
@@ -39,7 +40,7 @@ int main(int argc, char** argv)
 	char* hostname;
 	struct utsname* systemName; 
 	struct stat* fileData;
-	char* filePath;
+	
 	int od; /*For reading the output file if there is any.*/
 	/*scp -r -P 24 ../hw2 jijli@sparky.ic.stonybrook.edu:
 	*/
@@ -80,7 +81,6 @@ int main(int argc, char** argv)
 
 	/*Handle BOM bytes for UTF16 specially. 
     Read our values into the first and second elements.*/
-
 	clockStart = times(cpuStart);
 	if((rv = read(fd, &buf[0], 1)) == 1 && 
 			(rv = read(fd, &buf[1], 1)) == 1){
@@ -256,16 +256,16 @@ int main(int argc, char** argv)
 	free(glyph);
 	
 	if (verbosity >= 1) {
+		char absoluteFilePath[400];
 		fileData = malloc(sizeof(struct stat)+1);
 		if (fileData == NULL){
-			printf("Memory error.\n");
 			quit_converter(fd);
 		}
 		memset((void*)fileData, 0, sizeof(struct stat)+1);
 		if (stat(filename, fileData) == 0) {
 			char fSize[100];
 			memset((char*)fSize, 0, sizeof(fSize));
-			sprintf(fSize, "%jd", fileData->st_size);
+			sprintf(fSize, "%d", (int)fileData->st_size);
 			write(STDERR_FILENO, "Input file size: ", (int)sizeof(char)*strlen("Input file size: "));
 			write(STDERR_FILENO, fSize, sizeof(fSize));
 			write(STDERR_FILENO, " kb\n", (int)sizeof(char)*strlen(" kb\n"));
@@ -276,16 +276,15 @@ int main(int argc, char** argv)
 			/*some error*/
 			quit_converter(fd);
 		}
-		filePath = realpath(filename, NULL);
+		memset((void*)absoluteFilePath, 0, sizeof(absoluteFilePath));
+		filePath = realpath(filename, absoluteFilePath);
 		if (filePath != NULL) {
 			write(STDERR_FILENO, "Input file path: ", (int)sizeof(char)*strlen("Input file path: "));
-			write(STDERR_FILENO, filePath, (int)sizeof(char)*strlen(filePath));
+			write(STDERR_FILENO, filePath, (int)sizeof(absoluteFilePath));
 			write(STDERR_FILENO, "\n", (int)sizeof(char)*strlen("\n"));
-			free(filePath);
 		}
 		else {
-			free(filePath);
-			printf("Memory error.\n");
+			
 			quit_converter(fd);
 		}
 		if (source == BIG) {
@@ -303,15 +302,15 @@ int main(int argc, char** argv)
 		else {
 			write(STDERR_FILENO, "Output encoding: UTF-16LE\n", (int)sizeof(char)*strlen("Output encoding: UTF-16LE\n"));
 		}
-		hostname = malloc(sizeof(char)+56);
+		hostname = malloc(100);
 		if (hostname == NULL){
 			printf("Memory error.\n");
 			quit_converter(fd);
 		}
-		memset((void*)hostname, 0, sizeof(hostname)+56);
-		if (gethostname(hostname, sizeof(hostname)+56) == 0) {
+		memset((void*)hostname, 0, 100);
+		if (gethostname(hostname, 100) == 0) {
 			write(STDERR_FILENO, "Hostmachine: ", (int)sizeof(char)*strlen("Hostmachine: "));
-			write(STDERR_FILENO, hostname, (int)sizeof(hostname)+56);
+			write(STDERR_FILENO, hostname, 100);
 			write(STDERR_FILENO, "\n", (int)sizeof(char)*strlen("\n"));
 			free(hostname);
 		}
@@ -357,6 +356,7 @@ int main(int argc, char** argv)
 			memset((char*)fSize, 0, sizeof(fSize));
 			if (asciiPercentage % 10 >= 5) {
 				sprintf(fSize, "%d", (asciiPercentage/10 + 1));
+				printf("Total Ascii: %d\n", totalAsciis);
 				write(STDERR_FILENO, "ASCII: ", (int)sizeof(char)*strlen("ASCII: "));
 				write(STDERR_FILENO, fSize, sizeof(fSize));
 				write(STDERR_FILENO, "%\n", (int)sizeof(char)*strlen("%\n"));
@@ -448,7 +448,7 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 			bits = data[0];
 			glyph->bytes[0] = data[0];
 			numBytes = 1;
-
+			totalAsciis = totalAsciis + 1;
 		} 
 		else if (data[0] >= 0xC0 && data[0] <= 0xDF) {/*TWO BYTES*/
 			data[0] = data[0] & 0x1F;
@@ -524,9 +524,6 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 			free(glyph);
 			print_help();
 		    quit_converter(*fd);
-		}
-		if (bits <= 0x007F) {
-			totalAsciis = totalAsciis + 1;
 		}
 		glyph->end = end;
 		clockEnd = times(cpuEnd);
@@ -748,6 +745,7 @@ void parse_args(int argc, char** argv)
 	}
 	if ((optind+1) < argc) {
 		if (strcmp(argv[(optind+1)], filename) != 0) {
+			free(outputName);
 			outputName = strdup(argv[(optind+1)]);
 		}
 		else {
@@ -755,7 +753,6 @@ void parse_args(int argc, char** argv)
 			quit_converter(NO_FD);
 		}
 	}
-	
 	if(endian_convert == NULL){
 		print_help();
 		quit_converter(NO_FD);
