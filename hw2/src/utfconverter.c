@@ -89,11 +89,12 @@ int main(int argc, char** argv)
 	readRealStart = times(readCpuStart);
 	if((rv = read(fd, &buf[0], 1)) == 1 && 
 			(rv = read(fd, &buf[1], 1)) == 1){
+		void* memset_return; 
 		readRealEnd = times(readCpuEnd);
 		readRealTime = (double)(readRealEnd - readRealStart);
 		readUserTime = ((double)(readCpuEnd->tms_utime - readCpuStart->tms_utime) / (double)tps);
 		readSysTime = ((double)(readCpuEnd->tms_stime - readCpuStart->tms_stime) / (double)(tps));
-		void* memset_return; 
+		
 
 		if(buf[0] == 0xff && buf[1] == 0xfe){
 			/*file is little endian*/
@@ -216,12 +217,11 @@ int main(int argc, char** argv)
 	readRealStart = times(readCpuStart);
 	while((rv = read(fd, &buf[0], 1)) == 1 &&  
 			(rv = read(fd, &buf[1], 1)) == 1){
+		void* memset_return;
 		readRealEnd = times(readCpuEnd);
 		readRealTime = readRealTime + (double)(readRealEnd - readRealStart);
 		readUserTime = readUserTime + ((double)(readCpuEnd->tms_utime - readCpuStart->tms_utime) / (double)tps);
 		readSysTime = readSysTime + ((double)(readCpuEnd->tms_stime - readCpuStart->tms_stime) / (double)tps);
-		
-		void* memset_return;
 
 		write_glyph(fill_glyph(glyph, buf, source, &fd));
 		totalGlyphs = totalGlyphs + 1;
@@ -360,7 +360,7 @@ Glyph* swap_endianness(Glyph* glyph)
 	temp = glyph->bytes[0] ^ glyph->bytes[1];
 	glyph->bytes[0] = (glyph->bytes[0] & 0) ^ glyph->bytes[1];
 	glyph->bytes[1] = glyph->bytes[1] ^ temp;
-	if(glyph->surrogate){  //If a surrogate pair, swap the next two bytes.
+	if(glyph->surrogate){
 		temp = glyph->bytes[2] ^ glyph->bytes[3];
 		glyph->bytes[2] = (glyph->bytes[2] & 0) ^ glyph->bytes[3];
 		glyph->bytes[3] = glyph->bytes[3] ^ temp;
