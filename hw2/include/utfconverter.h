@@ -30,7 +30,7 @@
 #endif
 
 /** The enum for endianness. */
-typedef enum {LITTLE, BIG, EIGHT} endianness;
+typedef enum {LITTLE, BIG, EIGHT, EIGHTONE, EIGHTTWO, EIGHTTHREE, EIGHTFOUR} endianness;
 
 /** The struct for a codepoint glyph. */
 typedef struct Glyph {
@@ -50,7 +50,7 @@ const char* USAGE[12] = {"Command line utility for converting files from UTF-16L
 	"    -v, -vv\t    Toggles the verbosity of the program to level 1 or 2.\n",
 	"  Mandatory argument:",
 	"    -u OUT_ENC, --UTF=OUT_ENC\tSets the output encoding.",
-	"\t\t\t\tValid values for OUT_ENC: 16LE, 16BE\n",
+	"\t\t\t\tValid values for OUT_ENC: 8, 16LE, 16BE\n",
 	"  Positional Arguments:",
 	"    IN_FILE\tThe file to convert.",
 	"    [OUT_FILE] Output file name. If not present, defaults to stdout.",
@@ -124,3 +124,15 @@ The endianness to convert to (UTF-16LE or UTF-16BE).
 * @return The converted glyph.
 */
 Glyph* convert(Glyph* glyph, endianness end);
+
+/**
+* A function that converts a UTF-16LE or UTF-16BE glyph to a
+* UTF-8 glyph, and returns the result as a pointer to the
+* converted glyph.
+*
+* @param glyph The UTF-16LE/BE glyph to convert.
+* @param end
+The endianness of the source glyph.
+* @return The converted glyph.
+*/
+Glyph* convert_reverse(Glyph* glyph, endianness end);

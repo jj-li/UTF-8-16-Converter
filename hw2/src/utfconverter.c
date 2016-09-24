@@ -1,7 +1,8 @@
 #include "utfconverter.h"
 
-char* filename;
+
 char* outputName;
+char* filename;
 char* filePath;
 endianness source;
 endianness conversion;
@@ -27,13 +28,13 @@ double convertRealTime;
 double convertUserTime;
 double convertSysTime;
 int bomExist;
+int fd;
 int main(int argc, char** argv)
 {
 	/*
 		Potential ERRORS?
 		
 	*/
-	int fd;
 	int rv;
 	Glyph* glyph;
 	unsigned int buf[2];
@@ -42,8 +43,7 @@ int main(int argc, char** argv)
 	struct stat* fileData;
 	
 	int od; /*For reading the output file if there is any.*/
-	/*scp -r -P 24 ../hw2 jijli@sparky.ic.stonybrook.edu:
-	*/
+
 	/*After calling parse_args(), filename and conversion should be set. */
 	verbosity = 0;
 	filename = malloc(2);
@@ -196,6 +196,26 @@ int main(int argc, char** argv)
 					conversion == BIG){
 					bomExist = 1;
 				}
+				else if(buf[0] == 0xef && buf[1] == 0xbb){
+					if ((rv = read(od, &buf[0], 1)) == 1) {
+						if (buf[0] == 0xbf && conversion == EIGHT) {
+							bomExist = 1;
+						}
+						else {
+							free(cpuStart);
+							free(cpuEnd);
+							print_help();
+							quit_converter(fd);
+						}
+					}
+					else {
+						free(cpuStart);
+						free(cpuEnd);
+						print_help();
+						quit_converter(fd);
+					}
+					
+				}
 				else {
 					free(cpuStart);
 					free(cpuEnd);
@@ -218,11 +238,20 @@ int main(int argc, char** argv)
 						glyph->bytes[1] = 0xfe;
 						write_glyph(glyph);
 					}
-					else {
+					else if (conversion == BIG) {
 						glyph->surrogate = false;
 						glyph->bytes[0] = 0xfe;
 						glyph->bytes[1] = 0xff;
 						write_glyph(glyph);
+					}
+					else {
+						glyph->surrogate = true;
+						glyph->bytes[0] = 0xef;
+						glyph->bytes[1] = 0xbb;
+						glyph->bytes[2] = 0xbf;
+						glyph->end = EIGHTTHREE;
+						write_glyph(glyph);
+						
 					}
 				}
 			}
@@ -243,11 +272,20 @@ int main(int argc, char** argv)
 				glyph->bytes[1] = 0xfe;
 				write_glyph(glyph);
 			}
-			else {
+			else if (conversion == BIG) {
 				glyph->surrogate = false;
 				glyph->bytes[0] = 0xfe;
 				glyph->bytes[1] = 0xff;
 				write_glyph(glyph);
+			}
+			else {
+				glyph->surrogate = true;
+				glyph->bytes[0] = 0xef;
+				glyph->bytes[1] = 0xbb;
+				glyph->bytes[2] = 0xbf;
+				glyph->end = EIGHTTHREE;
+				write_glyph(glyph);
+				
 			}
 		}
 		memset_return = memset(glyph, 0, sizeof(Glyph)+1);
@@ -487,6 +525,14 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 	}
 	/*UTF-8 ENCODING*/
 	if (end == EIGHT) {
+		if (conversion == end) {
+			/*Trying to convert utf8 to utf8*/
+			free(cpuStart);
+			free(cpuEnd);
+			free(glyph);
+			print_help();
+			quit_converter(*fd);
+		}
 		if (data[0] > 0x7F) {
 			if(read(*fd, &data[1], 1) == 1) {
 				if (sparky == 1) {
@@ -660,8 +706,12 @@ Glyph* fill_glyph(Glyph* glyph, unsigned int data[2], endianness end, int* fd)
 		readRealTime = readRealTime + ((double)(clockEnd - clockStart) / (double)tps);
 		readUserTime = readUserTime + ((double)(cpuEnd->tms_utime - cpuStart->tms_utime) / (double)tps);
 		readSysTime = readSysTime + ((double)(cpuEnd->tms_stime - cpuStart->tms_stime) / (double)tps);
-		if (conversion != end) {
-			return swap_endianness(glyph);
+		if (conversion == EIGHT) {
+			return convert_reverse(glyph, end);
+		} else {
+			if (conversion != end) {
+				return swap_endianness(glyph);
+			}
 		}
 	}
 	return glyph;
@@ -680,29 +730,66 @@ void write_glyph(Glyph* glyph)
 				tempBytes[1] = '\n';
 				fwrite(tempBytes, sizeof(tempBytes[0]), 2, wd);
 			}
-			else {
+			else if (conversion == EIGHT) {
+				tempBytes[0] = '\n';
+				fwrite(tempBytes, sizeof(tempBytes[0]), 1, wd);;
+			}
+			else{
 				tempBytes[0] = '\n';
 				tempBytes[1] = '\0';
 				fwrite(tempBytes, sizeof(tempBytes[0]), 2, wd);;
 			}
 			bomExist = 0;
 		}
-		if(glyph->surrogate){
-			fwrite(glyph->bytes, sizeof(glyph->bytes[0]), SURROGATE_SIZE, wd);
-		} else {
-			fwrite(glyph->bytes, sizeof(glyph->bytes[0]), NON_SURROGATE_SIZE, wd);		}
-			clockEnd = times(cpuEnd);
-			writeRealTime = writeRealTime + ((double)(clockEnd - clockStart) / (double)tps);
-			writeUserTime = writeUserTime + ((double)(cpuEnd->tms_utime - cpuStart->tms_utime) / (double)tps);
-			writeSysTime = writeSysTime + ((double)(cpuEnd->tms_stime - cpuStart->tms_stime) / (double)tps);
-			fclose(wd);
+		if (conversion == EIGHT) {
+			if (glyph->end == EIGHTONE) {
+				fwrite(glyph->bytes, sizeof(glyph->bytes[0]), 1, wd);
+			}
+			else if(glyph->end == EIGHTTWO) {
+				fwrite(glyph->bytes, sizeof(glyph->bytes[0]), 2, wd);
+			}
+			else if(glyph->end == EIGHTTHREE) {
+				fwrite(glyph->bytes, sizeof(glyph->bytes[0]), 3, wd);
+			}
+			else{
+				fwrite(glyph->bytes, sizeof(glyph->bytes[0]), 4, wd);
+			}
+		}
+		else {
+			if(glyph->surrogate){
+				fwrite(glyph->bytes, sizeof(glyph->bytes[0]), SURROGATE_SIZE, wd);
+			} else {
+				fwrite(glyph->bytes, sizeof(glyph->bytes[0]), NON_SURROGATE_SIZE, wd);		
+			}
+		}
+		clockEnd = times(cpuEnd);
+		writeRealTime = writeRealTime + ((double)(clockEnd - clockStart) / (double)tps);
+		writeUserTime = writeUserTime + ((double)(cpuEnd->tms_utime - cpuStart->tms_utime) / (double)tps);
+		writeSysTime = writeSysTime + ((double)(cpuEnd->tms_stime - cpuStart->tms_stime) / (double)tps);
+		fclose(wd);
 	}
 	else {
 		clockStart = times(cpuStart);
-		if(glyph->surrogate){
-			write(STDOUT_FILENO, glyph->bytes, SURROGATE_SIZE);
-		} else {
-			write(STDOUT_FILENO, glyph->bytes, NON_SURROGATE_SIZE);
+		if (conversion == EIGHT) {
+			if (glyph->end == EIGHTONE) {
+				write(STDOUT_FILENO, glyph->bytes, 1);
+			}
+			else if(glyph->end == EIGHTTWO) {
+				write(STDOUT_FILENO, glyph->bytes, 2);
+			}
+			else if(glyph->end == EIGHTTHREE) {
+				write(STDOUT_FILENO, glyph->bytes, 3);
+			}
+			else{
+				write(STDOUT_FILENO, glyph->bytes, 4);
+			}
+		}
+		else {
+			if(glyph->surrogate){
+				write(STDOUT_FILENO, glyph->bytes, SURROGATE_SIZE);
+			} else {
+				write(STDOUT_FILENO, glyph->bytes, NON_SURROGATE_SIZE);
+			}
 		}
 		clockEnd = times(cpuEnd);
 		writeRealTime = writeRealTime + ((double)(clockEnd - clockStart) / (double)tps);
@@ -713,7 +800,7 @@ void write_glyph(Glyph* glyph)
 
 void parse_args(int argc, char** argv)
 {
-	int option_index, c, h;
+	int option_index, c, h, u;
 	char* endian_convert;
 	static struct option long_options[] = {
 		{"help", no_argument, 0, 'y'},
@@ -723,6 +810,7 @@ void parse_args(int argc, char** argv)
 	};
 	endian_convert = NULL;
 	h = 0;
+	u = 0;
 
 	/* If getopt() returns with a valid (its working correctly) 
 	 * return code, then process the args! */
@@ -735,8 +823,10 @@ void parse_args(int argc, char** argv)
 				h = h+1;
 				break;
 			case 'u':
+				u = u +1;
 				break;
 			case 'z':
+				u = u + 1;
 				break;
 			case 'v':
 				break;
@@ -757,6 +847,10 @@ void parse_args(int argc, char** argv)
 		close(NO_FD);
 		exit(EXIT_SUCCESS);
 	}
+	if (u == 0 || u > 1) {
+		print_help();
+		quit_converter(NO_FD);
+	}
 	optind = 1;
 	while((c = getopt_long(argc, argv, "hvu:", long_options, &option_index)) != -1){
 		switch(c){ 
@@ -765,7 +859,7 @@ void parse_args(int argc, char** argv)
 			case 'y':
 				break;
 			case 'u':
-				if ((strcmp(optarg, "16LE") != 0) && (strcmp(optarg, "16BE") != 0)) {
+				if ((strcmp(optarg, "16LE") != 0) && (strcmp(optarg, "16BE") != 0) && (strcmp(optarg, "8") != 0)) {
 					print_help();
 					quit_converter(NO_FD);
 				}
@@ -776,7 +870,7 @@ void parse_args(int argc, char** argv)
 					print_help();
 					quit_converter(NO_FD);
 				}
-				if ((strcmp(argv[(optind-1)], "--UTF=16LE") == 0) || (strcmp(argv[(optind-1)], "--UTF=16BE") == 0)) {
+				if ((strcmp(argv[(optind-1)], "--UTF=16LE") == 0) || (strcmp(argv[(optind-1)], "--UTF=16BE") == 0) || (strcmp(argv[(optind-1)], "--UTF=8") == 0)) {
 					endian_convert = optarg;
 				}
 				else {
@@ -828,6 +922,8 @@ void parse_args(int argc, char** argv)
 		conversion = LITTLE;
 	} else if(strcmp(endian_convert, "16BE") == 0){
 		conversion = BIG;
+	} else if(strcmp(endian_convert, "8") == 0){
+		conversion = EIGHT;
 	} else {
 		print_help();
 		quit_converter(NO_FD);
@@ -869,6 +965,9 @@ Glyph* convert(Glyph* glyph, endianness end) {
 	clockStart = times(cpuStart);
 	bits = 0;
 	/* if end is UTF8 then just return. no converting*/
+	if (end == EIGHT) {
+		return glyph;
+	}
 	if (numBytes == 4) {
 		bits = (glyph->bytes[0] << 18) + (glyph->bytes[1] << 12) + (glyph->bytes[2] << 6) + glyph->bytes[3];
 	}
@@ -917,5 +1016,80 @@ Glyph* convert(Glyph* glyph, endianness end) {
 	convertUserTime = convertUserTime + ((double)(cpuEnd->tms_utime - cpuStart->tms_utime) / (double)tps);
 	convertSysTime = convertSysTime + ((double)(cpuEnd->tms_stime - cpuStart->tms_stime) / (double)tps);
 
+	return glyph;
+}
+
+Glyph* convert_reverse(Glyph* glyph, endianness end) {
+	unsigned int msb;
+	unsigned int lsb;
+	unsigned int bits;
+
+	clockStart = times(cpuStart);
+	msb = 0;
+	lsb = 0;
+	bits = 0;
+	if (end == BIG) {
+		msb = (glyph->bytes[0] << 8) + glyph->bytes[1];
+	}
+	else {
+		msb = glyph->bytes[0] + (glyph->bytes[1] << 8);
+	}
+	if (glyph->surrogate) {
+		if (end == BIG) {
+			lsb = (glyph->bytes[2] << 8) + glyph->bytes[3];
+		}
+		else {
+			lsb = glyph->bytes[2] + (glyph->bytes[3] << 8);
+		}
+		bits = (msb - 0xD800) << 10;
+		bits = bits + (lsb - 0xDC00);
+		bits = bits + 0x10000;
+	}
+	else {
+		bits = msb;
+	}
+	if (bits <= 0x7F) {
+		/*ONE BYTE*/
+		glyph->surrogate = false;
+		glyph->bytes[0] = bits;
+		glyph->bytes[1] = 0;
+		glyph->end = EIGHTONE;
+	}
+	else if (bits >= 0x80 && bits <= 0x7FF) {
+		/*TWO BYTES*/
+		glyph->bytes[0] = 0xC0 + (bits >> 6);
+		glyph->bytes[1] = 0x80 + (bits & 0x3F);
+		glyph->end = EIGHTTWO;
+		glyph->surrogate = false;
+	}
+	else if (bits >= 0x800 && bits <= 0xFFFF) {
+		/*THREE BYTES*/
+		glyph->bytes[0] = 0xE0 + (bits >> 12);
+		glyph->bytes[1] = 0x80 + ((bits >> 6) & 0x3F);
+		glyph->bytes[2] = 0x80 + (bits & 0x3F);
+		glyph->end = EIGHTTHREE;
+		glyph->surrogate = true;
+	}
+	else if (bits >= 0x10000 && bits <= 0x1FFFFF) {
+		/*FOUR BYTES*/
+		glyph->bytes[0] = 0xF0 + (bits >> 18);
+		glyph->bytes[1] = 0x80 + ((bits >> 12) & 0x3F);
+		glyph->bytes[2] = 0x80 + ((bits >> 6) & 0x3F);
+		glyph->bytes[3] = 0x80 + (bits & 0x3F);
+		glyph->end = EIGHTFOUR;
+		glyph->surrogate = true;
+	}
+	else {
+		/*Outside of code point range*/
+		free(cpuStart);
+		free(cpuEnd);
+		free(glyph);
+		print_help();
+		quit_converter(fd);
+	}
+	clockEnd = times(cpuEnd);
+	convertRealTime = convertRealTime + ((double)(clockEnd - clockStart) / (double)tps);
+	convertUserTime = convertUserTime + ((double)(cpuEnd->tms_utime - cpuStart->tms_utime) / (double)tps);
+	convertSysTime = convertSysTime + ((double)(cpuEnd->tms_stime - cpuStart->tms_stime) / (double)tps);
 	return glyph;
 }
