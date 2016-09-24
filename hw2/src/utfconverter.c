@@ -718,6 +718,7 @@ void parse_args(int argc, char** argv)
 	static struct option long_options[] = {
 		{"help", no_argument, 0, 'y'},
 		{"UTF=", required_argument, 0, 'z'},
+		{"h", no_argument, 0, 'x'},
 		{0, 0, 0, 0}
 	};
 	endian_convert = NULL;
@@ -739,6 +740,7 @@ void parse_args(int argc, char** argv)
 				break;
 			case 'v':
 				break;
+			case 'x':
 			default:
 				print_help();
 				quit_converter(NO_FD);
@@ -786,6 +788,8 @@ void parse_args(int argc, char** argv)
 				if (verbosity < 2) {
 					verbosity = verbosity + 1;
 				}
+				break;
+			case 'x':
 				break;
 			default:
 				print_help();
