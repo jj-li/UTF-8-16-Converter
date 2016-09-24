@@ -310,7 +310,7 @@ int main(int argc, char** argv)
 			char fSize[100];
 			memset((char*)fSize, 0, sizeof(fSize));
 			sprintf(fSize, "%d", (int)fileData->st_size);
-			write(STDERR_FILENO, "Input file size: ", (int)sizeof(char)*strlen("Input file size: "));
+			write(STDERR_FILENO, "\nInput file size: ", (int)sizeof(char)*strlen("\nInput file size: "));
 			write(STDERR_FILENO, fSize, sizeof(fSize));
 			write(STDERR_FILENO, " kb\n", (int)sizeof(char)*strlen(" kb\n"));
 			free(fileData);
@@ -770,11 +770,17 @@ void parse_args(int argc, char** argv)
 				endian_convert = optarg;
 				break;
 			case 'z':
-				if((strcmp(optarg, "") == 0)){ 
+				if(strcmp(optarg, "") == 0){ 
 					print_help();
 					quit_converter(NO_FD);
 				}
-				endian_convert = optarg;
+				if ((strcmp(argv[(optind-1)], "--UTF=16LE") == 0) || (strcmp(argv[(optind-1)], "--UTF=16BE") == 0)) {
+					endian_convert = optarg;
+				}
+				else {
+					print_help();
+					quit_converter(NO_FD);
+				}
 				break;
 			case 'v':
 				if (verbosity < 2) {
@@ -858,7 +864,7 @@ Glyph* convert(Glyph* glyph, endianness end) {
 
 	clockStart = times(cpuStart);
 	bits = 0;
-
+	/* if end is UTF8 then just return. no converting*/
 	if (numBytes == 4) {
 		bits = (glyph->bytes[0] << 18) + (glyph->bytes[1] << 12) + (glyph->bytes[2] << 6) + glyph->bytes[3];
 	}
