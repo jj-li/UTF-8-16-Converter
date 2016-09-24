@@ -382,6 +382,9 @@ int main(int argc, char** argv)
 		if (conversion == BIG) {
 			write(STDERR_FILENO, "Output encoding: UTF-16BE\n", (int)sizeof(char)*strlen("Output encoding: UTF-16BE\n"));
 		}
+		else if (conversion == EIGHT){
+			write(STDERR_FILENO, "Output encoding: UTF-16BE\n", (int)sizeof(char)*strlen("Output encoding: UTF8\n"));
+		}
 		else {
 			write(STDERR_FILENO, "Output encoding: UTF-16LE\n", (int)sizeof(char)*strlen("Output encoding: UTF-16LE\n"));
 		}
