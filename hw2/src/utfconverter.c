@@ -1047,6 +1047,7 @@ Glyph* convert_reverse(Glyph* glyph, endianness end) {
 		bits = (msb - 0xD800) << 10;
 		bits = bits + (lsb - 0xDC00);
 		bits = bits + 0x10000;
+		totalSurrogates = totalSurrogates - 1;
 	}
 	else {
 		bits = msb;
