@@ -119,8 +119,7 @@ void quit_converter(int fd);
 * glyph, and returns the result as a pointer to the converted glyph.
 *
 * @param glyph The UTF-8 glyph to convert.
-* @param end
-The endianness to convert to (UTF-16LE or UTF-16BE).
+* @param end The endianness to convert to (UTF-16LE or UTF-16BE).
 * @return The converted glyph.
 */
 Glyph* convert(Glyph* glyph, endianness end);
@@ -131,8 +130,7 @@ Glyph* convert(Glyph* glyph, endianness end);
 * converted glyph.
 *
 * @param glyph The UTF-16LE/BE glyph to convert.
-* @param end
-The endianness of the source glyph.
+* @param end The endianness of the source glyph.
 * @return The converted glyph.
 */
 Glyph* convert_reverse(Glyph* glyph, endianness end);

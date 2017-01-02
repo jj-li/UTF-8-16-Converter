@@ -31,10 +31,7 @@ int bomExist;
 int fd;
 int main(int argc, char** argv)
 {
-	/*
-		Potential ERRORS?
-		
-	*/
+
 	int rv;
 	Glyph* glyph;
 	unsigned int buf[2];
